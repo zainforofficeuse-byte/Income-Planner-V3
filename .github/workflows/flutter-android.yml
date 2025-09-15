@@ -4,11 +4,15 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:  # run manually if needed
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: Income-Planner-V3  # 👈 folder ka naam jahan pubspec.yaml hai
 
     steps:
       - name: Checkout source
@@ -17,7 +21,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0' # stable version
+          flutter-version: '3.24.0'
 
       - name: Install dependencies
         run: flutter pub get
