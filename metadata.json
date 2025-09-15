@@ -1,0 +1,5 @@
+{
+  "name": "Income Planner",
+  "description": "A simple and intuitive web application to track your daily income and expenses with ease. Plan your budget, view your transaction history, and manage your finances effectively.",
+  "requestFramePermissions": []
+}
