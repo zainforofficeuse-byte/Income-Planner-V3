@@ -1,0 +1,30 @@
+name: Create Android Folder
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Capacitor
+        run: |
+          npm install @capacitor/core @capacitor/cli
+
+      - name: Initialize Capacitor Android
+        run: |
+          npx cap init income-planner com.azeem.incomeplanner --web-dir=dist
+          npx cap add android
+
+      - name: Upload android folder as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-folder
+          path: android
