@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import type { Entry, CurrencySymbols } from './types';
+import type { Entry, CurrencySymbols, Category, RecurringEntry } from './types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
 const currencySymbols: CurrencySymbols = {
@@ -12,30 +12,229 @@ const currencySymbols: CurrencySymbols = {
     'PHP': '₱',
 };
 
-const defaultIncomeCategories = ['Salary', 'Profit', 'Loan', 'Gift', 'Other'];
-const defaultExpenseCategories = ['Repay Loan', 'Grocery', 'Rent', 'Transport', 'Entertainment', 'Other'];
+const defaultIncomeCategories: Category[] = [
+    { name: 'Salary', icon: '💰' },
+    { name: 'Profit', icon: '📈' },
+    { name: 'Loan', icon: '🏦' },
+    { name: 'Gift', icon: '🎁' },
+    { name: 'Other', icon: '🪙' },
+];
+const defaultExpenseCategories: Category[] = [
+    { name: 'Repay Loan', icon: '💸' },
+    { name: 'Grocery', icon: '🛒' },
+    { name: 'Rent', icon: '🏠' },
+    { name: 'Transport', icon: '🚗' },
+    { name: 'Entertainment', icon: '🎬' },
+    { name: 'Other', icon: '🛍️' },
+];
+
 
 // --- Helper Components ---
 
+const formatNumberInput = (input: string): string => {
+    if (!input) return '';
+    const digitsOnly = input.replace(/[^0-9]/g, '');
+    if (!digitsOnly) return '';
+    return parseInt(digitsOnly, 10).toLocaleString('en-US');
+};
+
+interface RecurringManagerProps {
+    recurringEntries: RecurringEntry[];
+    setRecurringEntries: React.Dispatch<React.SetStateAction<RecurringEntry[]>>;
+    currencySymbol: string;
+}
+
+const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringEntries, setRecurringEntries, currencySymbol }) => {
+    const [formState, setFormState] = useState({
+        amount: '',
+        description: '',
+        isIncome: true,
+        frequency: 'monthly' as 'daily' | 'weekly' | 'monthly',
+        startDate: new Date().toISOString().split('T')[0],
+    });
+    const [editingEntry, setEditingEntry] = useState<RecurringEntry | null>(null);
+    
+    const resetForm = () => {
+        setFormState({
+            amount: '',
+            description: '',
+            isIncome: true,
+            frequency: 'monthly',
+            startDate: new Date().toISOString().split('T')[0],
+        });
+    };
+
+    const handleAdd = () => {
+        const cleanAmount = formState.amount.replace(/,/g, '');
+        const numericAmount = parseFloat(cleanAmount);
+
+        if (isNaN(numericAmount) || numericAmount <= 0 || !formState.description.trim() || !formState.startDate) {
+            alert('Please fill all fields with valid values.');
+            return;
+        }
+
+        const newRecurringEntry: RecurringEntry = {
+            id: Date.now(),
+            amount: numericAmount,
+            description: formState.description.trim(),
+            isIncome: formState.isIncome,
+            frequency: formState.frequency,
+            startDate: formState.startDate,
+            nextDueDate: formState.startDate,
+        };
+        setRecurringEntries(prev => [...prev, newRecurringEntry]);
+        resetForm();
+    };
+    
+    const handleDelete = (id: number) => {
+        if(window.confirm('Are you sure you want to delete this recurring transaction?')) {
+            setRecurringEntries(prev => prev.filter(e => e.id !== id));
+            if(editingEntry?.id === id) {
+                setEditingEntry(null);
+            }
+        }
+    };
+    
+    const handleUpdate = () => {
+        if (!editingEntry) return;
+        
+        const cleanAmount = String(editingEntry.amount).replace(/,/g, '');
+        const numericAmount = parseFloat(cleanAmount);
+
+        if (isNaN(numericAmount) || numericAmount <= 0 || !editingEntry.description.trim()) {
+            alert('Please provide a valid amount and description.');
+            return;
+        }
+
+        setRecurringEntries(prev => prev.map(e => e.id === editingEntry.id ? {...editingEntry, amount: numericAmount} : e));
+        setEditingEntry(null);
+    };
+    
+    const handleFormAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormState(prev => ({...prev, amount: formatNumberInput(e.target.value) }));
+    };
+
+    const handleEditAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (editingEntry) {
+            setEditingEntry({...editingEntry, amount: Number(formatNumberInput(e.target.value).replace(/,/g, '')) });
+        }
+    };
+    
+    return (
+        <div>
+            <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">Recurring Transactions</h3>
+            
+            {/* Add New Form */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-6 border border-gray-200 dark:border-gray-600">
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2">
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Amount</label>
+                        <div className="relative mt-1">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">{currencySymbol}</span>
+                            <input type="text" inputMode="numeric" value={formState.amount} onChange={handleFormAmountChange} className="w-full bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1.5 pl-7 pr-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                        </div>
+                    </div>
+                    <div className="col-span-2">
+                         <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Description</label>
+                         <input type="text" value={formState.description} onChange={e => setFormState({...formState, description: e.target.value})} className="w-full mt-1 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Frequency</label>
+                        <select value={formState.frequency} onChange={e => setFormState({...formState, frequency: e.target.value as any})} className="w-full mt-1 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                        </select>
+                    </div>
+                     <div>
+                        <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Start Date</label>
+                        <input type="date" value={formState.startDate} onChange={e => setFormState({...formState, startDate: e.target.value})} className="w-full mt-1 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    </div>
+                    <div className="col-span-2 grid grid-cols-2 gap-2 mt-1">
+                        <button onClick={() => setFormState({...formState, isIncome: true})} className={`py-1.5 rounded-md text-xs font-semibold transition ${formState.isIncome ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>Income</button>
+                        <button onClick={() => setFormState({...formState, isIncome: false})} className={`py-1.5 rounded-md text-xs font-semibold transition ${!formState.isIncome ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>Expense</button>
+                    </div>
+                </div>
+                <button onClick={handleAdd} className="w-full mt-3 px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition disabled:opacity-50" disabled={!formState.amount || !formState.description}>Add Recurring Entry</button>
+            </div>
+            
+             {/* List */}
+             <ul className="space-y-2 max-h-[35vh] overflow-y-auto pr-2">
+                 {recurringEntries.map(entry => (
+                    <li key={entry.id} className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 group">
+                        {editingEntry?.id === entry.id ? (
+                             <div className="space-y-2">
+                                <input type="text" value={editingEntry.description} onChange={e => setEditingEntry({...editingEntry, description: e.target.value})} autoFocus className="w-full bg-white dark:bg-gray-600 border-2 border-gray-300 rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                                <div className="grid grid-cols-2 gap-2">
+                                     <input type="text" inputMode="numeric" value={editingEntry.amount.toLocaleString()} onChange={handleEditAmountChange} className="w-full bg-white dark:bg-gray-600 border-2 border-gray-300 rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                                     <select value={editingEntry.frequency} onChange={e => setEditingEntry({...editingEntry, frequency: e.target.value as any})} className="w-full bg-white dark:bg-gray-600 border-2 border-gray-300 rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                        <option value="daily">Daily</option>
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
+                                </div>
+                                <div className="flex justify-end gap-2 items-center">
+                                     <div className="grid grid-cols-2 gap-1 flex-grow">
+                                        <button onClick={() => setEditingEntry({...editingEntry, isIncome: true})} className={`py-1 rounded-md text-xs font-semibold transition ${editingEntry.isIncome ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>Income</button>
+                                        <button onClick={() => setEditingEntry({...editingEntry, isIncome: false})} className={`py-1 rounded-md text-xs font-semibold transition ${!editingEntry.isIncome ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>Expense</button>
+                                    </div>
+                                    <button onClick={handleUpdate} className="p-1.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-800 rounded-md">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                    </button>
+                                    <button onClick={() => setEditingEntry(null)} className="p-1.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                    </button>
+                                </div>
+                             </div>
+                        ) : (
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="font-semibold text-gray-800 dark:text-gray-100">{entry.description}</p>
+                                    <p className={`text-sm font-bold ${entry.isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                        {currencySymbol}{entry.amount.toLocaleString()} <span className="text-xs font-normal text-gray-500 dark:text-gray-400 capitalize">({entry.frequency})</span>
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Next due: {new Date(entry.nextDueDate + 'T00:00:00').toLocaleDateString()}</p>
+                                </div>
+                                <div className="flex items-center gap-1 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => setEditingEntry(entry)} className="p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-md">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                                    </button>
+                                    <button onClick={() => handleDelete(entry.id)} className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-800 rounded-md">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </li>
+                 ))}
+                 {recurringEntries.length === 0 && <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-4">No recurring transactions set up yet.</p>}
+             </ul>
+        </div>
+    )
+};
+
+
 interface CategoryManagerProps {
     title: string;
-    categories: string[];
-    setCategories: React.Dispatch<React.SetStateAction<string[]>>;
+    categories: Category[];
+    setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
 }
 
 const CategoryManager: React.FC<CategoryManagerProps> = ({ title, categories, setCategories }) => {
-    const [newCategory, setNewCategory] = useState('');
-    const [editingCategory, setEditingCategory] = useState<{ index: number; name: string } | null>(null);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [newCategoryIcon, setNewCategoryIcon] = useState('');
+    const [editingCategory, setEditingCategory] = useState<{ index: number; name: string; icon: string; } | null>(null);
 
     const handleAdd = () => {
-        if (newCategory.trim() && !categories.map(c => c.toLowerCase()).includes(newCategory.trim().toLowerCase())) {
-            setCategories(prev => [...prev, newCategory.trim()]);
-            setNewCategory('');
+        if (newCategoryName.trim() && !categories.some(c => c.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
+            setCategories(prev => [...prev, { name: newCategoryName.trim(), icon: newCategoryIcon.trim() || '🔖' }]);
+            setNewCategoryName('');
+            setNewCategoryIcon('');
         }
     };
 
     const handleDelete = (index: number) => {
-        if (window.confirm(`Are you sure you want to delete "${categories[index]}"? This cannot be undone.`)) {
+        if (window.confirm(`Are you sure you want to delete "${categories[index].name}"? This cannot be undone.`)) {
             setCategories(prev => prev.filter((_, i) => i !== index));
             if (editingCategory?.index === index) {
                 setEditingCategory(null);
@@ -45,13 +244,16 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ title, categories, se
     
     const handleUpdate = () => {
         if (editingCategory && editingCategory.name.trim()) {
-             if (categories.map(c => c.toLowerCase()).includes(editingCategory.name.trim().toLowerCase()) && categories[editingCategory.index].toLowerCase() !== editingCategory.name.trim().toLowerCase()) {
+            if (categories.some((c, i) => c.name.toLowerCase() === editingCategory.name.trim().toLowerCase() && i !== editingCategory.index)) {
                  alert("A category with this name already exists.");
                  return;
-             }
+            }
             setCategories(prev => {
                 const updated = [...prev];
-                updated[editingCategory.index] = editingCategory.name.trim();
+                updated[editingCategory.index] = {
+                    name: editingCategory.name.trim(),
+                    icon: editingCategory.icon.trim() || '🔖'
+                };
                 return updated;
             });
             setEditingCategory(null);
@@ -62,31 +264,50 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ title, categories, se
         <div>
             <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">{title}</h3>
             <div className="flex gap-2 mb-4">
+                <input
+                    type="text"
+                    value={newCategoryIcon}
+                    onChange={(e) => setNewCategoryIcon(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                    placeholder="Icon"
+                    className="w-16 text-center bg-gray-100 border-2 border-gray-200 rounded-lg py-2 px-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                />
                 <input 
                     type="text"
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
                     placeholder="Add new category"
                     className="flex-grow bg-gray-100 border-2 border-gray-200 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 />
-                <button onClick={handleAdd} className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition disabled:opacity-50" disabled={!newCategory.trim()}>Add</button>
+                <button onClick={handleAdd} className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition disabled:opacity-50" disabled={!newCategoryName.trim()}>Add</button>
             </div>
             <ul className="space-y-2 max-h-[35vh] overflow-y-auto pr-2">
                 {categories.map((cat, index) => (
-                    <li key={`${cat}-${index}`} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 group">
+                    <li key={`${cat.name}-${index}`} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 group">
                         {editingCategory?.index === index ? (
-                             <input 
-                                type="text"
-                                value={editingCategory.name}
-                                onChange={(e) => setEditingCategory({ index, name: e.target.value })}
-                                onKeyDown={(e) => e.key === 'Enter' && handleUpdate()}
-                                autoFocus
-                                onBlur={() => setEditingCategory(null)}
-                                className="flex-grow bg-white border-2 border-gray-300 rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-100"
-                            />
+                            <div className="flex items-center gap-2 flex-grow">
+                                <input
+                                    type="text"
+                                    value={editingCategory.icon}
+                                    onChange={(e) => setEditingCategory({ ...editingCategory, icon: e.target.value })}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleUpdate()}
+                                    className="w-14 text-center bg-white border-2 border-gray-300 rounded-md py-1 px-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-100"
+                                />
+                                <input 
+                                    type="text"
+                                    value={editingCategory.name}
+                                    onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleUpdate()}
+                                    autoFocus
+                                    className="flex-grow bg-white border-2 border-gray-300 rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-100"
+                                />
+                            </div>
                         ) : (
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{cat}</span>
+                            <div className="flex items-center">
+                                <span className="text-xl w-8 text-center">{cat.icon || '🔖'}</span>
+                                <span className="ml-2 text-sm font-medium text-gray-800 dark:text-gray-200">{cat.name}</span>
+                            </div>
                         )}
                         
                         <div className="flex items-center gap-1 ml-2">
@@ -101,7 +322,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ title, categories, se
                                 </>
                            ) : (
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => setEditingCategory({ index, name: cat })} className="p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-md">
+                                    <button onClick={() => setEditingCategory({ index, name: cat.name, icon: cat.icon })} className="p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-md">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                                     </button>
                                     <button onClick={() => handleDelete(index)} className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-800 rounded-md">
@@ -123,18 +344,22 @@ interface SettingsModalProps {
     onClose: () => void;
     selectedCurrency: string;
     onSelectCurrency: (currency: string) => void;
-    incomeCategories: string[];
-    setIncomeCategories: React.Dispatch<React.SetStateAction<string[]>>;
-    expenseCategories: string[];
-    setExpenseCategories: React.Dispatch<React.SetStateAction<string[]>>;
+    incomeCategories: Category[];
+    setIncomeCategories: React.Dispatch<React.SetStateAction<Category[]>>;
+    expenseCategories: Category[];
+    setExpenseCategories: React.Dispatch<React.SetStateAction<Category[]>>;
+    recurringEntries: RecurringEntry[];
+    setRecurringEntries: React.Dispatch<React.SetStateAction<RecurringEntry[]>>;
+    currencySymbol: string;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
     isOpen, onClose, onSelectCurrency, selectedCurrency, 
-    incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories 
+    incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
+    recurringEntries, setRecurringEntries, currencySymbol
 }) => {
     if (!isOpen) return null;
-    const [activeTab, setActiveTab] = useState<'currency' | 'income' | 'expense'>('currency');
+    const [activeTab, setActiveTab] = useState<'currency' | 'income' | 'expense' | 'recurring'>('currency');
 
     const renderContent = () => {
         switch (activeTab) {
@@ -142,6 +367,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 return <CategoryManager title="Income Categories" categories={incomeCategories} setCategories={setIncomeCategories} />;
             case 'expense':
                 return <CategoryManager title="Expense Categories" categories={expenseCategories} setCategories={setExpenseCategories} />;
+            case 'recurring':
+                return <RecurringManager recurringEntries={recurringEntries} setRecurringEntries={setRecurringEntries} currencySymbol={currencySymbol} />;
             case 'currency':
             default:
                 return (
@@ -171,7 +398,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         }
     };
     
-    const TabButton: React.FC<{tab: 'currency' | 'income' | 'expense', children: React.ReactNode}> = ({tab, children}) => (
+    const TabButton: React.FC<{tab: 'currency' | 'income' | 'expense' | 'recurring', children: React.ReactNode}> = ({tab, children}) => (
         <button
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors ${activeTab === tab ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'bg-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
@@ -186,10 +413,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex-shrink-0 p-4 border-b border-gray-200 dark:border-gray-700">
                      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-gray-100">Settings</h2>
                 </div>
-                 <div className="flex-shrink-0 px-4 border-b border-gray-200 dark:border-gray-700 flex justify-center space-x-2">
+                 <div className="flex-shrink-0 px-4 border-b border-gray-200 dark:border-gray-700 flex justify-center space-x-1">
                     <TabButton tab="currency">Currency</TabButton>
                     <TabButton tab="income">Income</TabButton>
                     <TabButton tab="expense">Expense</TabButton>
+                    <TabButton tab="recurring">Recurring</TabButton>
                 </div>
                 <div className="flex-grow p-4 overflow-y-hidden bg-white dark:bg-gray-800">
                     {renderContent()}
@@ -228,16 +456,9 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
     }, [entry]);
 
     if (!isOpen || !entry) return null;
-    
-    const formatNumber = (input: string): string => {
-        if (!input) return '';
-        const digitsOnly = input.replace(/[^0-9]/g, '');
-        if (!digitsOnly) return '';
-        return parseInt(digitsOnly, 10).toLocaleString('en-US');
-    };
 
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setAmount(formatNumber(e.target.value));
+        setAmount(formatNumberInput(e.target.value));
     };
 
     const handleSave = () => {
@@ -316,9 +537,10 @@ interface HistoryItemProps {
   currencySymbol: string;
   onEdit: () => void;
   onDelete: () => void;
+  icon?: string;
 }
 
-const HistoryItem: React.FC<HistoryItemProps> = React.memo(({ entry, currencySymbol, onEdit, onDelete }) => {
+const HistoryItem: React.FC<HistoryItemProps> = React.memo(({ entry, currencySymbol, onEdit, onDelete, icon }) => {
   const isIncome = entry.isIncome;
   const sign = isIncome ? '+' : '-';
   const colorClass = isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
@@ -327,7 +549,7 @@ const HistoryItem: React.FC<HistoryItemProps> = React.memo(({ entry, currencySym
   return (
     <div className="flex items-center py-3 relative group">
       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${bgColorClass} ${colorClass} font-bold text-lg flex-shrink-0`}>
-        {sign}
+        {icon ? <span className="text-xl">{icon}</span> : sign}
       </div>
       <div className="ml-4 flex-grow">
         <p className="font-semibold text-gray-800 dark:text-gray-100">{entry.description}</p>
@@ -361,6 +583,8 @@ interface PlannerPageProps {
     currencySymbol: string;
     totalBalance: number;
     suggestionList: string[];
+    incomeCategories: Category[];
+    expenseCategories: Category[];
     handleAmountChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     setDescription: (desc: string) => void;
     handleAddEntry: (isIncome: boolean) => void;
@@ -370,8 +594,16 @@ interface PlannerPageProps {
 
 const PlannerPage: React.FC<PlannerPageProps> = ({
     entries, amount, description, error, currencySymbol, totalBalance, suggestionList,
+    incomeCategories, expenseCategories,
     handleAmountChange, setDescription, handleAddEntry, onEditEntry, onDeleteEntry
-}) => (
+}) => {
+    const findIcon = useCallback((description: string, isIncome: boolean): string | undefined => {
+        const list = isIncome ? incomeCategories : expenseCategories;
+        const category = list.find(cat => cat.name.toLowerCase() === description.toLowerCase());
+        return category?.icon;
+    }, [incomeCategories, expenseCategories]);
+
+    return (
     <>
         <div className="flex-grow flex flex-col">
             {entries.length > 0 ? (
@@ -384,6 +616,7 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
                             currencySymbol={currencySymbol} 
                             onEdit={() => onEditEntry(entry)}
                             onDelete={() => onDeleteEntry(entry.id)}
+                            icon={findIcon(entry.description, entry.isIncome)}
                         />
                      ))}
                    </div>
@@ -461,7 +694,7 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
             </div>
         </div>
     </>
-);
+)};
 
 
 interface BreakdownDisplayProps {
@@ -592,8 +825,9 @@ const App: React.FC = () => {
     const [error, setError] = useState<string>('');
     const [currentPage, setCurrentPage] = useState<'planner' | 'dashboard'>('planner');
     
-    const [incomeCategories, setIncomeCategories] = useState<string[]>(defaultIncomeCategories);
-    const [expenseCategories, setExpenseCategories] = useState<string[]>(defaultExpenseCategories);
+    const [incomeCategories, setIncomeCategories] = useState<Category[]>(defaultIncomeCategories);
+    const [expenseCategories, setExpenseCategories] = useState<Category[]>(defaultExpenseCategories);
+    const [recurringEntries, setRecurringEntries] = useState<RecurringEntry[]>([]);
     
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [entryToEdit, setEntryToEdit] = useState<Entry | null>(null);
@@ -604,6 +838,50 @@ const App: React.FC = () => {
         if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
+    
+    // Effect to process recurring entries on app load
+    useEffect(() => {
+        const processRecurring = () => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+    
+            const newEntries: Entry[] = [];
+            const updatedRecurringEntries = recurringEntries.map(recurring => {
+                let nextDueDate = new Date(recurring.nextDueDate + 'T00:00:00');
+                let updatedRecurring = { ...recurring };
+    
+                while (nextDueDate <= today) {
+                    newEntries.push({
+                        id: Date.now() + Math.random(),
+                        amount: recurring.amount,
+                        description: recurring.description,
+                        isIncome: recurring.isIncome,
+                        date: nextDueDate.toISOString().split('T')[0],
+                        time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                    });
+    
+                    if (recurring.frequency === 'daily') {
+                        nextDueDate.setDate(nextDueDate.getDate() + 1);
+                    } else if (recurring.frequency === 'weekly') {
+                        nextDueDate.setDate(nextDueDate.getDate() + 7);
+                    } else if (recurring.frequency === 'monthly') {
+                        nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+                    }
+                }
+                
+                updatedRecurring.nextDueDate = nextDueDate.toISOString().split('T')[0];
+                return updatedRecurring;
+            });
+            
+            if (newEntries.length > 0) {
+                setEntries(prev => [...prev, ...newEntries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+                setRecurringEntries(updatedRecurringEntries);
+            }
+        };
+    
+        processRecurring();
+    }, []);
+
 
     useEffect(() => {
         const root = window.document.documentElement;
@@ -633,19 +911,12 @@ const App: React.FC = () => {
             .reverse()
             .map(e => e.description);
         const uniqueRecent = [...new Set(recentDescriptions)];
-        const combined = [...incomeCategories, ...expenseCategories, ...uniqueRecent];
+        const combined = [...incomeCategories.map(c => c.name), ...expenseCategories.map(c => c.name), ...uniqueRecent];
         return [...new Set(combined)];
     }, [entries, incomeCategories, expenseCategories]);
     
-    const formatNumber = (input: string): string => {
-        if (!input) return '';
-        const digitsOnly = input.replace(/[^0-9]/g, '');
-        if (!digitsOnly) return '';
-        return parseInt(digitsOnly, 10).toLocaleString('en-US');
-    };
-
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const formatted = formatNumber(e.target.value);
+        const formatted = formatNumberInput(e.target.value);
         setAmount(formatted);
     };
 
@@ -737,6 +1008,8 @@ const App: React.FC = () => {
                         currencySymbol={currencySymbol}
                         totalBalance={totalBalance}
                         suggestionList={suggestionList}
+                        incomeCategories={incomeCategories}
+                        expenseCategories={expenseCategories}
                         handleAmountChange={handleAmountChange}
                         setDescription={setDescription}
                         handleAddEntry={handleAddEntry}
@@ -768,6 +1041,9 @@ const App: React.FC = () => {
                 setIncomeCategories={setIncomeCategories}
                 expenseCategories={expenseCategories}
                 setExpenseCategories={setExpenseCategories}
+                recurringEntries={recurringEntries}
+                setRecurringEntries={setRecurringEntries}
+                currencySymbol={currencySymbol}
             />
 
             <EditEntryModal
