@@ -2,6 +2,17 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Entry, CurrencySymbols, Category, RecurringEntry } from './types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 
+// Assumes GOOGLE_API_KEY and GOOGLE_CLIENT_ID are available in the environment
+const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const SPREADSHEET_NAME = 'IncomePlannerData';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
+const DISCOVERY_DOCS = [
+    "https://sheets.googleapis.com/$discovery/rest?version=v4",
+    "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"
+];
+
+
 const currencySymbols: CurrencySymbols = {
     'USD': '$',
     'EUR': '€',
@@ -351,18 +362,62 @@ interface SettingsModalProps {
     recurringEntries: RecurringEntry[];
     setRecurringEntries: React.Dispatch<React.SetStateAction<RecurringEntry[]>>;
     currencySymbol: string;
+    // Google Sync props
+    isSignedIn: boolean;
+    syncStatus: string;
+    userInfo: any;
+    spreadsheetId: string | null;
+    onSignIn: () => void;
+    onSignOut: () => void;
+    onBackup: () => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
     isOpen, onClose, onSelectCurrency, selectedCurrency, 
     incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
-    recurringEntries, setRecurringEntries, currencySymbol
+    recurringEntries, setRecurringEntries, currencySymbol,
+    isSignedIn, syncStatus, userInfo, spreadsheetId, onSignIn, onSignOut, onBackup
 }) => {
     if (!isOpen) return null;
-    const [activeTab, setActiveTab] = useState<'currency' | 'income' | 'expense' | 'recurring'>('currency');
+    const [activeTab, setActiveTab] = useState<'currency' | 'income' | 'expense' | 'recurring' | 'sync'>('currency');
 
     const renderContent = () => {
         switch (activeTab) {
+            case 'sync':
+                return (
+                    <div>
+                        <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Google Sync & Backup</h3>
+                        {!isSignedIn ? (
+                            <div className="text-center">
+                                <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Connect your Google account to automatically save and sync your transactions to a private Google Sheet.</p>
+                                <button 
+                                    onClick={onSignIn} 
+                                    className="px-6 py-2.5 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition flex items-center justify-center gap-2 mx-auto"
+                                >
+                                    <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48px" height="48px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.519-3.536-11.088-8.108l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.99,36.566,44,31.2,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
+                                    <span>Connect with Google</span>
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg flex items-center gap-3">
+                                    <img src={userInfo?.imageUrl} alt="User" className="w-10 h-10 rounded-full" />
+                                    <div>
+                                        <p className="font-semibold text-sm text-gray-800 dark:text-gray-100">{userInfo?.name}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">{userInfo?.email}</p>
+                                    </div>
+                                </div>
+                                {spreadsheetId && (
+                                     <a href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`} target="_blank" rel="noopener noreferrer" className="block w-full text-center px-4 py-2 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold rounded-lg text-sm hover:bg-green-200 dark:hover:bg-green-800 transition">View Synced Sheet</a>
+                                )}
+                                <button onClick={onBackup} disabled={syncStatus === 'syncing'} className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50">
+                                    {syncStatus === 'syncing' ? 'Syncing...' : 'Create Manual Backup'}
+                                </button>
+                                <button onClick={onSignOut} className="w-full px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 font-semibold rounded-lg text-sm hover:bg-red-200 dark:hover:bg-red-800 transition">Disconnect</button>
+                            </div>
+                        )}
+                    </div>
+                );
             case 'income':
                 return <CategoryManager title="Income Categories" categories={incomeCategories} setCategories={setIncomeCategories} />;
             case 'expense':
@@ -398,10 +453,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         }
     };
     
-    const TabButton: React.FC<{tab: 'currency' | 'income' | 'expense' | 'recurring', children: React.ReactNode}> = ({tab, children}) => (
+    const TabButton: React.FC<{tab: 'currency' | 'income' | 'expense' | 'recurring' | 'sync', children: React.ReactNode}> = ({tab, children}) => (
         <button
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors ${activeTab === tab ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'bg-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
+            className={`px-3 py-2 text-xs md:text-sm font-semibold rounded-t-lg transition-colors ${activeTab === tab ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'bg-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
         >
             {children}
         </button>
@@ -413,13 +468,14 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex-shrink-0 p-4 border-b border-gray-200 dark:border-gray-700">
                      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-gray-100">Settings</h2>
                 </div>
-                 <div className="flex-shrink-0 px-4 border-b border-gray-200 dark:border-gray-700 flex justify-center space-x-1">
+                 <div className="flex-shrink-0 px-2 border-b border-gray-200 dark:border-gray-700 flex justify-center space-x-1">
                     <TabButton tab="currency">Currency</TabButton>
                     <TabButton tab="income">Income</TabButton>
                     <TabButton tab="expense">Expense</TabButton>
                     <TabButton tab="recurring">Recurring</TabButton>
+                    <TabButton tab="sync">Sync</TabButton>
                 </div>
-                <div className="flex-grow p-4 overflow-y-hidden bg-white dark:bg-gray-800">
+                <div className="flex-grow p-4 overflow-y-auto bg-white dark:bg-gray-800">
                     {renderContent()}
                 </div>
             </div>
@@ -813,6 +869,18 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
     );
 };
 
+type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
+
+const SyncStatusIcon: React.FC<{ status: SyncStatus }> = ({ status }) => {
+    const iconMap: Record<SyncStatus, React.ReactNode> = {
+        idle: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>,
+        syncing: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 4l5 5M20 20l-5-5" /></svg>,
+        synced: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" /></svg>,
+        error: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+    };
+    return <div className="p-2 rounded-full" title={`Sync status: ${status}`}>{iconMap[status]}</div>
+};
+
 
 // --- Main Application Component ---
 
@@ -832,12 +900,156 @@ const App: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [entryToEdit, setEntryToEdit] = useState<Entry | null>(null);
 
+    const [isGapiReady, setIsGapiReady] = useState(false);
+    const [isSignedIn, setIsSignedIn] = useState(false);
+    const [userInfo, setUserInfo] = useState<any>(null);
+    const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+    const [spreadsheetId, setSpreadsheetId] = useState<string | null>(localStorage.getItem('spreadsheetId'));
+
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
         if (typeof window === 'undefined') return 'light';
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
+
+     useEffect(() => {
+        const initClient = () => {
+            if (!GOOGLE_API_KEY || !GOOGLE_CLIENT_ID) {
+                console.error("Google API Key or Client ID is missing.");
+                setSyncStatus('error');
+                return;
+            }
+            (window as any).gapi.client.init({
+                apiKey: GOOGLE_API_KEY,
+                clientId: GOOGLE_CLIENT_ID,
+                scope: SCOPES,
+                discoveryDocs: DISCOVERY_DOCS,
+            }).then(() => {
+                const authInstance = (window as any).gapi.auth2.getAuthInstance();
+                authInstance.isSignedIn.listen(updateSigninStatus);
+                updateSigninStatus(authInstance.isSignedIn.get());
+                setIsGapiReady(true);
+            }).catch((err: any) => {
+                console.error("Error initializing GAPI client", err);
+                setSyncStatus('error');
+            });
+        };
+        if ((window as any).gapi) {
+            (window as any).gapi.load('client:auth2', initClient);
+        }
+    }, []);
+
+    const updateSigninStatus = (signedIn: boolean) => {
+        setIsSignedIn(signedIn);
+        if (signedIn) {
+            const profile = (window as any).gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile();
+            setUserInfo({ name: profile.getName(), email: profile.getEmail(), imageUrl: profile.getImageUrl() });
+            setSyncStatus('syncing');
+        } else {
+            setUserInfo(null);
+            setSyncStatus('idle');
+        }
+    };
+
+    const findOrCreateSpreadsheet = useCallback(async () => {
+        if (spreadsheetId) return spreadsheetId;
+        try {
+            const response = await (window as any).gapi.client.drive.files.list({
+                q: `mimeType='application/vnd.google-apps.spreadsheet' and name='${SPREADSHEET_NAME}' and trashed=false`,
+                fields: 'files(id, name)',
+            });
+            if (response.result.files.length > 0) {
+                const id = response.result.files[0].id;
+                localStorage.setItem('spreadsheetId', id);
+                setSpreadsheetId(id);
+                return id;
+            } else {
+                const newSheet = await (window as any).gapi.client.sheets.spreadsheets.create({
+                    properties: { title: SPREADSHEET_NAME },
+                });
+                const id = newSheet.result.spreadsheetId;
+                 await (window as any).gapi.client.sheets.spreadsheets.values.append({
+                    spreadsheetId: id,
+                    range: 'A1:F1',
+                    valueInputOption: 'USER_ENTERED',
+                    resource: { values: [['ID', 'Amount', 'Description', 'IsIncome', 'Date', 'Time']] },
+                });
+                localStorage.setItem('spreadsheetId', id);
+                setSpreadsheetId(id);
+                return id;
+            }
+        } catch (err) {
+            console.error("Error finding or creating spreadsheet", err);
+            setSyncStatus('error');
+            return null;
+        }
+    }, [spreadsheetId]);
+
+    const loadEntriesFromSheet = useCallback(async (sheetId: string) => {
+        try {
+            const response = await (window as any).gapi.client.sheets.spreadsheets.values.get({
+                spreadsheetId: sheetId,
+                range: 'A2:F',
+            });
+            const values = response.result.values || [];
+            const loadedEntries: Entry[] = values.map((row: any[]) => ({
+                id: Number(row[0]),
+                amount: parseFloat(row[1]),
+                description: row[2],
+                isIncome: row[3] === 'TRUE',
+                date: row[4],
+                time: row[5],
+            }));
+            setEntries(loadedEntries);
+            setSyncStatus('synced');
+        } catch (err) {
+            console.error("Error loading entries from sheet", err);
+            setSyncStatus('error');
+        }
+    }, []);
+    
+    useEffect(() => {
+        if (isSignedIn && isGapiReady) {
+            findOrCreateSpreadsheet().then(id => {
+                if (id) loadEntriesFromSheet(id);
+            });
+        }
+    }, [isSignedIn, isGapiReady, findOrCreateSpreadsheet, loadEntriesFromSheet]);
+    
+    const handleSignIn = () => (window as any).gapi.auth2.getAuthInstance().signIn();
+    const handleSignOut = () => (window as any).gapi.auth2.getAuthInstance().signOut();
+
+    const handleCreateBackup = async () => {
+        if (!spreadsheetId) {
+            alert('Cannot create backup. No spreadsheet connected.');
+            return;
+        }
+        setSyncStatus('syncing');
+        const backupContent = JSON.stringify({
+            entries,
+            incomeCategories,
+            expenseCategories,
+            recurringEntries,
+            selectedCurrency,
+        }, null, 2);
+        const fileName = `IncomePlanner_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        try {
+            const fileMetadata = { name: fileName, mimeType: 'application/json' };
+            const media = { mimeType: 'application/json', body: backupContent };
+            await (window as any).gapi.client.drive.files.create({
+                resource: fileMetadata,
+                media: media,
+                fields: 'id'
+            });
+            alert(`Backup "${fileName}" created successfully in your Google Drive.`);
+            setSyncStatus('synced');
+        } catch (err) {
+            console.error('Backup failed:', err);
+            alert('Failed to create backup.');
+            setSyncStatus('error');
+        }
+    };
     
     // Effect to process recurring entries on app load
     useEffect(() => {
@@ -941,10 +1153,18 @@ const App: React.FC = () => {
         };
 
         setEntries(prevEntries => [...prevEntries, newEntry]);
+        if (isSignedIn && spreadsheetId) {
+            setSyncStatus('syncing');
+            const values = [[newEntry.id, newEntry.amount, newEntry.description, newEntry.isIncome, newEntry.date, newEntry.time]];
+            (window as any).gapi.client.sheets.spreadsheets.values.append({
+                spreadsheetId, range: 'A:F', valueInputOption: 'USER_ENTERED', resource: { values }
+            }).then(() => setSyncStatus('synced')).catch(() => setSyncStatus('error'));
+        }
+
         setAmount('');
         setDescription('');
         setError('');
-    }, [amount, description]);
+    }, [amount, description, isSignedIn, spreadsheetId]);
 
     const handleSelectCurrency = (currencyCode: string) => {
         setSelectedCurrency(currencyCode);
@@ -953,6 +1173,23 @@ const App: React.FC = () => {
     const handleDeleteEntry = (id: number) => {
         if (window.confirm("Are you sure you want to delete this transaction?")) {
             setEntries(prev => prev.filter(e => e.id !== id));
+            if (isSignedIn && spreadsheetId) {
+                setSyncStatus('syncing');
+                (window as any).gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A:A' })
+                    .then((res: any) => {
+                        const rowIndex = res.result.values.findIndex((row: any[]) => Number(row[0]) === id);
+                        if (rowIndex !== -1) {
+                            const deleteRequest = {
+                                requests: [{ deleteDimension: { range: { sheetId: 0, dimension: 'ROWS', startIndex: rowIndex + 1, endIndex: rowIndex + 2 }}}]
+                            };
+                            (window as any).gapi.client.sheets.spreadsheets.batchUpdate({ spreadsheetId, resource: deleteRequest })
+                                .then(() => setSyncStatus('synced'))
+                                .catch(() => setSyncStatus('error'));
+                        } else {
+                            setSyncStatus('synced');
+                        }
+                    }).catch(() => setSyncStatus('error'));
+            }
         }
     };
 
@@ -963,6 +1200,22 @@ const App: React.FC = () => {
 
     const handleUpdateEntry = (updatedEntry: Entry) => {
         setEntries(prev => prev.map(e => e.id === updatedEntry.id ? updatedEntry : e));
+         if (isSignedIn && spreadsheetId) {
+            setSyncStatus('syncing');
+             (window as any).gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A:F' })
+                .then((res: any) => {
+                    const rowIndex = res.result.values.findIndex((row: any[]) => Number(row[0]) === updatedEntry.id);
+                    if (rowIndex !== -1) {
+                        const range = `A${rowIndex + 2}:F${rowIndex + 2}`;
+                        const values = [[updatedEntry.id, updatedEntry.amount, updatedEntry.description, updatedEntry.isIncome, updatedEntry.date, updatedEntry.time]];
+                        (window as any).gapi.client.sheets.spreadsheets.values.update({ spreadsheetId, range, valueInputOption: 'USER_ENTERED', resource: { values } })
+                           .then(() => setSyncStatus('synced'))
+                           .catch(() => setSyncStatus('error'));
+                    } else {
+                        setSyncStatus('synced');
+                    }
+                }).catch(() => setSyncStatus('error'));
+        }
         setIsEditModalOpen(false);
         setEntryToEdit(null);
     };
@@ -977,6 +1230,7 @@ const App: React.FC = () => {
                         {currentPage === 'planner' ? 'Income Planner' : 'Dashboard'}
                     </h1>
                     <div className="flex items-center gap-2">
+                        {isGapiReady && <SyncStatusIcon status={syncStatus} />}
                         <button onClick={handleThemeToggle} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" aria-label="Toggle theme">
                            {theme === 'light' ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1044,6 +1298,13 @@ const App: React.FC = () => {
                 recurringEntries={recurringEntries}
                 setRecurringEntries={setRecurringEntries}
                 currencySymbol={currencySymbol}
+                isSignedIn={isSignedIn}
+                syncStatus={syncStatus}
+                userInfo={userInfo}
+                spreadsheetId={spreadsheetId}
+                onSignIn={handleSignIn}
+                onSignOut={handleSignOut}
+                onBackup={handleCreateBackup}
             />
 
             <EditEntryModal
