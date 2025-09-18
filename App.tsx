@@ -885,17 +885,57 @@ const SyncStatusIcon: React.FC<{ status: SyncStatus }> = ({ status }) => {
 // --- Main Application Component ---
 
 const App: React.FC = () => {
-    const [entries, setEntries] = useState<Entry[]>([]);
+    const [entries, setEntries] = useState<Entry[]>(() => {
+        try {
+            const saved = localStorage.getItem('incomePlanner-entries');
+            return saved ? JSON.parse(saved) : [];
+        } catch (error) {
+            console.error("Error reading entries from localStorage", error);
+            return [];
+        }
+    });
     const [amount, setAmount] = useState<string>('');
     const [description, setDescription] = useState<string>('');
-    const [selectedCurrency, setSelectedCurrency] = useState<string>('USD');
+    const [selectedCurrency, setSelectedCurrency] = useState<string>(() => {
+        try {
+            const saved = localStorage.getItem('incomePlanner-currency');
+            return saved ? JSON.parse(saved) : 'USD';
+        } catch (error) {
+            console.error("Error reading currency from localStorage", error);
+            return 'USD';
+        }
+    });
     const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
     const [currentPage, setCurrentPage] = useState<'planner' | 'dashboard'>('planner');
     
-    const [incomeCategories, setIncomeCategories] = useState<Category[]>(defaultIncomeCategories);
-    const [expenseCategories, setExpenseCategories] = useState<Category[]>(defaultExpenseCategories);
-    const [recurringEntries, setRecurringEntries] = useState<RecurringEntry[]>([]);
+    const [incomeCategories, setIncomeCategories] = useState<Category[]>(() => {
+        try {
+            const saved = localStorage.getItem('incomePlanner-incomeCategories');
+            return saved ? JSON.parse(saved) : defaultIncomeCategories;
+        } catch (error) {
+            console.error("Error reading income categories from localStorage", error);
+            return defaultIncomeCategories;
+        }
+    });
+    const [expenseCategories, setExpenseCategories] = useState<Category[]>(() => {
+        try {
+            const saved = localStorage.getItem('incomePlanner-expenseCategories');
+            return saved ? JSON.parse(saved) : defaultExpenseCategories;
+        } catch (error) {
+            console.error("Error reading expense categories from localStorage", error);
+            return defaultExpenseCategories;
+        }
+    });
+    const [recurringEntries, setRecurringEntries] = useState<RecurringEntry[]>(() => {
+        try {
+            const saved = localStorage.getItem('incomePlanner-recurringEntries');
+            return saved ? JSON.parse(saved) : [];
+        } catch (error) {
+            console.error("Error reading recurring entries from localStorage", error);
+            return [];
+        }
+    });
     
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [entryToEdit, setEntryToEdit] = useState<Entry | null>(null);
@@ -904,7 +944,7 @@ const App: React.FC = () => {
     const [isSignedIn, setIsSignedIn] = useState(false);
     const [userInfo, setUserInfo] = useState<any>(null);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
-    const [spreadsheetId, setSpreadsheetId] = useState<string | null>(localStorage.getItem('spreadsheetId'));
+    const [spreadsheetId, setSpreadsheetId] = useState<string | null>(() => localStorage.getItem('spreadsheetId'));
 
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
         if (typeof window === 'undefined') return 'light';
@@ -912,6 +952,35 @@ const App: React.FC = () => {
         if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
+    
+    // --- LocalStorage Persistence ---
+    useEffect(() => {
+        localStorage.setItem('incomePlanner-entries', JSON.stringify(entries));
+    }, [entries]);
+
+    useEffect(() => {
+        localStorage.setItem('incomePlanner-currency', JSON.stringify(selectedCurrency));
+    }, [selectedCurrency]);
+
+    useEffect(() => {
+        localStorage.setItem('incomePlanner-incomeCategories', JSON.stringify(incomeCategories));
+    }, [incomeCategories]);
+
+    useEffect(() => {
+        localStorage.setItem('incomePlanner-expenseCategories', JSON.stringify(expenseCategories));
+    }, [expenseCategories]);
+
+    useEffect(() => {
+        localStorage.setItem('incomePlanner-recurringEntries', JSON.stringify(recurringEntries));
+    }, [recurringEntries]);
+    
+    useEffect(() => {
+        if (spreadsheetId) {
+            localStorage.setItem('spreadsheetId', spreadsheetId);
+        } else {
+            localStorage.removeItem('spreadsheetId');
+        }
+    }, [spreadsheetId]);
 
      useEffect(() => {
         const initClient = () => {
@@ -961,7 +1030,6 @@ const App: React.FC = () => {
             });
             if (response.result.files.length > 0) {
                 const id = response.result.files[0].id;
-                localStorage.setItem('spreadsheetId', id);
                 setSpreadsheetId(id);
                 return id;
             } else {
@@ -975,7 +1043,6 @@ const App: React.FC = () => {
                     valueInputOption: 'USER_ENTERED',
                     resource: { values: [['ID', 'Amount', 'Description', 'IsIncome', 'Date', 'Time']] },
                 });
-                localStorage.setItem('spreadsheetId', id);
                 setSpreadsheetId(id);
                 return id;
             }
