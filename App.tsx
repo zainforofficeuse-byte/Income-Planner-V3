@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import type { Entry, CurrencySymbols, Category, RecurringEntry } from './types';
+import type { Entry, CurrencySymbols, Category, RecurringEntry, BudgetGoal } from './types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 
 // Assumes GOOGLE_API_KEY and GOOGLE_CLIENT_ID are available in the environment
@@ -47,6 +47,121 @@ const formatNumberInput = (input: string): string => {
     const digitsOnly = input.replace(/[^0-9]/g, '');
     if (!digitsOnly) return '';
     return parseInt(digitsOnly, 10).toLocaleString('en-US');
+};
+
+interface BudgetManagerProps {
+    budgetGoals: BudgetGoal[];
+    setBudgetGoals: React.Dispatch<React.SetStateAction<BudgetGoal[]>>;
+    expenseCategories: Category[];
+    currencySymbol: string;
+}
+
+const BudgetManager: React.FC<BudgetManagerProps> = ({ budgetGoals, setBudgetGoals, expenseCategories, currencySymbol }) => {
+    const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []); // YYYY-MM
+
+    const [formState, setFormState] = useState({
+        type: 'spending' as 'spending' | 'saving',
+        name: expenseCategories.length > 0 ? expenseCategories[0].name : '',
+        customName: 'Monthly Savings',
+        targetAmount: '',
+    });
+
+    useEffect(() => {
+        // Reset name selection when expense categories change to avoid invalid state
+        if (formState.type === 'spending' && !expenseCategories.some(c => c.name === formState.name)) {
+            setFormState(prev => ({ ...prev, name: expenseCategories[0]?.name || '' }));
+        }
+    }, [expenseCategories, formState.type, formState.name]);
+
+    const handleAddGoal = () => {
+        const cleanAmount = formState.targetAmount.replace(/,/g, '');
+        const numericAmount = parseFloat(cleanAmount);
+        const name = formState.type === 'spending' ? formState.name : formState.customName;
+
+        if (isNaN(numericAmount) || numericAmount <= 0 || !name.trim()) {
+            alert('Please provide a valid name and target amount.');
+            return;
+        }
+
+        const newGoal: BudgetGoal = {
+            id: Date.now(),
+            type: formState.type,
+            name: name.trim(),
+            targetAmount: numericAmount,
+            month: currentMonth,
+        };
+
+        setBudgetGoals(prev => [...prev, newGoal]);
+        setFormState(prev => ({
+            ...prev,
+            targetAmount: '',
+            customName: 'Monthly Savings'
+        }));
+    };
+    
+    const handleDeleteGoal = (id: number) => {
+        if (window.confirm('Are you sure you want to delete this budget goal?')) {
+            setBudgetGoals(prev => prev.filter(g => g.id !== id));
+        }
+    };
+    
+    const currentMonthGoals = budgetGoals.filter(g => g.month === currentMonth);
+
+    return (
+        <div>
+            <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">This Month's Budget Goals</h3>
+            
+            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-6 border border-gray-200 dark:border-gray-600 space-y-3">
+                 <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Goal Type</label>
+                    <select value={formState.type} onChange={e => setFormState({...formState, type: e.target.value as any})} className="w-full mt-1 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <option value="spending">Spending Limit</option>
+                        <option value="saving">Savings Goal</option>
+                    </select>
+                </div>
+                <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{formState.type === 'spending' ? 'Category' : 'Goal Name'}</label>
+                    {formState.type === 'spending' ? (
+                        <select value={formState.name} onChange={e => setFormState({...formState, name: e.target.value})} className="w-full mt-1 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" disabled={expenseCategories.length === 0}>
+                            {expenseCategories.length > 0 ? (
+                                expenseCategories.map(cat => <option key={cat.name} value={cat.name}>{cat.name}</option>)
+                            ) : (
+                                <option>No expense categories found</option>
+                            )}
+                        </select>
+                    ) : (
+                        <input type="text" value={formState.customName} onChange={e => setFormState({...formState, customName: e.target.value})} className="w-full mt-1 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    )}
+                </div>
+                <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Target Amount</label>
+                    <div className="relative mt-1">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">{currencySymbol}</span>
+                        <input type="text" inputMode="numeric" value={formState.targetAmount} onChange={(e) => setFormState({...formState, targetAmount: formatNumberInput(e.target.value)})} className="w-full bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1.5 pl-7 pr-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    </div>
+                </div>
+                <button onClick={handleAddGoal} className="w-full mt-3 px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition disabled:opacity-50" disabled={!formState.targetAmount || (formState.type === 'spending' && !formState.name) || (formState.type === 'saving' && !formState.customName)}>Add Goal</button>
+            </div>
+            
+             <ul className="space-y-2 max-h-[35vh] overflow-y-auto pr-2">
+                 {currentMonthGoals.map(goal => (
+                    <li key={goal.id} className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 group flex items-center justify-between">
+                        <div>
+                             <p className="font-semibold text-gray-800 dark:text-gray-100">{goal.name}</p>
+                             <p className={`text-sm font-bold ${goal.type === 'saving' ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                                Target: {currencySymbol}{goal.targetAmount.toLocaleString()}
+                                <span className="text-xs font-normal text-gray-500 dark:text-gray-400 capitalize ml-2">({goal.type})</span>
+                            </p>
+                        </div>
+                         <button onClick={() => handleDeleteGoal(goal.id)} className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-800 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                        </button>
+                    </li>
+                 ))}
+                 {currentMonthGoals.length === 0 && <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-4">No budget goals set for this month.</p>}
+             </ul>
+        </div>
+    );
 };
 
 interface RecurringManagerProps {
@@ -361,6 +476,8 @@ interface SettingsModalProps {
     setExpenseCategories: React.Dispatch<React.SetStateAction<Category[]>>;
     recurringEntries: RecurringEntry[];
     setRecurringEntries: React.Dispatch<React.SetStateAction<RecurringEntry[]>>;
+    budgetGoals: BudgetGoal[];
+    setBudgetGoals: React.Dispatch<React.SetStateAction<BudgetGoal[]>>;
     currencySymbol: string;
     // Google Sync props
     isSignedIn: boolean;
@@ -375,11 +492,11 @@ interface SettingsModalProps {
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
     isOpen, onClose, onSelectCurrency, selectedCurrency, 
     incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
-    recurringEntries, setRecurringEntries, currencySymbol,
+    recurringEntries, setRecurringEntries, budgetGoals, setBudgetGoals, currencySymbol,
     isSignedIn, syncStatus, userInfo, spreadsheetId, onSignIn, onSignOut, onBackup
 }) => {
     if (!isOpen) return null;
-    const [activeTab, setActiveTab] = useState<'currency' | 'income' | 'expense' | 'recurring' | 'sync'>('currency');
+    const [activeTab, setActiveTab] = useState<'currency' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync'>('currency');
 
     const renderContent = () => {
         switch (activeTab) {
@@ -424,6 +541,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 return <CategoryManager title="Expense Categories" categories={expenseCategories} setCategories={setExpenseCategories} />;
             case 'recurring':
                 return <RecurringManager recurringEntries={recurringEntries} setRecurringEntries={setRecurringEntries} currencySymbol={currencySymbol} />;
+            case 'goals':
+                return <BudgetManager budgetGoals={budgetGoals} setBudgetGoals={setBudgetGoals} expenseCategories={expenseCategories} currencySymbol={currencySymbol} />;
             case 'currency':
             default:
                 return (
@@ -453,10 +572,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         }
     };
     
-    const TabButton: React.FC<{tab: 'currency' | 'income' | 'expense' | 'recurring' | 'sync', children: React.ReactNode}> = ({tab, children}) => (
+    const TabButton: React.FC<{tab: 'currency' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync', children: React.ReactNode}> = ({tab, children}) => (
         <button
             onClick={() => setActiveTab(tab)}
-            className={`px-3 py-2 text-xs md:text-sm font-semibold rounded-t-lg transition-colors ${activeTab === tab ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'bg-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
+            className={`px-3 py-2 text-xs md:text-sm font-semibold rounded-t-lg transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'bg-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
         >
             {children}
         </button>
@@ -468,11 +587,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="flex-shrink-0 p-4 border-b border-gray-200 dark:border-gray-700">
                      <h2 className="text-xl font-bold text-center text-gray-800 dark:text-gray-100">Settings</h2>
                 </div>
-                 <div className="flex-shrink-0 px-2 border-b border-gray-200 dark:border-gray-700 flex justify-center space-x-1">
+                 <div className="flex-shrink-0 px-2 border-b border-gray-200 dark:border-gray-700 flex justify-start overflow-x-auto">
                     <TabButton tab="currency">Currency</TabButton>
                     <TabButton tab="income">Income</TabButton>
                     <TabButton tab="expense">Expense</TabButton>
                     <TabButton tab="recurring">Recurring</TabButton>
+                    <TabButton tab="goals">Goals</TabButton>
                     <TabButton tab="sync">Sync</TabButton>
                 </div>
                 <div className="flex-grow p-4 overflow-y-auto bg-white dark:bg-gray-800">
@@ -939,6 +1059,89 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
     );
 };
 
+interface GoalsPageProps {
+    entries: Entry[];
+    budgetGoals: BudgetGoal[];
+    currencySymbol: string;
+    expenseCategories: Category[];
+}
+
+const GoalsPage: React.FC<GoalsPageProps> = ({ entries, budgetGoals, currencySymbol, expenseCategories }) => {
+    const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []); // YYYY-MM
+
+    const progressData = useMemo(() => {
+        const currentMonthGoals = budgetGoals.filter(g => g.month === currentMonth);
+        const currentMonthEntries = entries.filter(e => e.date.slice(0, 7) === currentMonth);
+        
+        const income = currentMonthEntries.filter(e => e.isIncome).reduce((sum, e) => sum + e.amount, 0);
+        const expenses = currentMonthEntries.filter(e => !e.isIncome).reduce((sum, e) => sum + e.amount, 0);
+
+        return currentMonthGoals.map(goal => {
+            let currentAmount = 0;
+            if (goal.type === 'spending') {
+                currentAmount = currentMonthEntries
+                    .filter(e => !e.isIncome && e.description === goal.name)
+                    .reduce((sum, e) => sum + e.amount, 0);
+            } else { // saving
+                currentAmount = income - expenses;
+            }
+            const progress = goal.targetAmount > 0 ? (currentAmount / goal.targetAmount) * 100 : 0;
+            return {
+                ...goal,
+                currentAmount: Math.max(0, currentAmount), // savings can be negative, but show 0
+                progress: Math.max(0, progress),
+            };
+        });
+    }, [budgetGoals, entries, currentMonth]);
+
+    const findIcon = useCallback((goalName: string) => {
+        const category = expenseCategories.find(cat => cat.name === goalName);
+        return category?.icon;
+    }, [expenseCategories]);
+
+    return (
+        <div className="space-y-4 overflow-y-auto pb-24">
+            <h2 className="text-lg font-bold text-gray-700 dark:text-gray-200">This Month's Goals</h2>
+            {progressData.length > 0 ? (
+                progressData.map(goal => {
+                    const isSpending = goal.type === 'spending';
+                    const isOverBudget = isSpending && goal.progress > 100;
+                    const progressColor = isSpending ? (isOverBudget ? 'bg-red-500' : 'bg-blue-500') : 'bg-green-500';
+
+                    return (
+                        <div key={goal.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
+                            <div className="flex items-center mb-2">
+                                <span className="text-xl w-8 text-center">{isSpending ? findIcon(goal.name) || '🎯' : '🌱'}</span>
+                                <h3 className="ml-2 font-bold text-gray-800 dark:text-gray-100">{goal.name}</h3>
+                            </div>
+                            <div className="flex justify-between items-baseline text-sm mb-1">
+                                <span className={`font-semibold ${isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}>
+                                    {currencySymbol}{goal.currentAmount.toLocaleString()}
+                                </span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                    Target: {currencySymbol}{goal.targetAmount.toLocaleString()}
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                                <div 
+                                    className={`${progressColor} h-2.5 rounded-full transition-all duration-500`}
+                                    style={{ width: `${Math.min(goal.progress, 100)}%` }}
+                                ></div>
+                            </div>
+                             {isOverBudget && <p className="text-xs text-red-500 dark:text-red-400 mt-1.5 text-right">You're over budget!</p>}
+                        </div>
+                    )
+                })
+            ) : (
+                <div className="text-center py-10">
+                    <p className="text-gray-500 dark:text-gray-400">No goals set for this month.</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Go to Settings {'>'} Goals to add one.</p>
+                </div>
+            )}
+        </div>
+    );
+};
+
 type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
 
 const SyncStatusIcon: React.FC<{ status: SyncStatus }> = ({ status }) => {
@@ -977,7 +1180,7 @@ const App: React.FC = () => {
     });
     const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
     const [error, setError] = useState<string>('');
-    const [currentPage, setCurrentPage] = useState<'planner' | 'dashboard'>('planner');
+    const [currentPage, setCurrentPage] = useState<'planner' | 'dashboard' | 'goals'>('planner');
     
     const [incomeCategories, setIncomeCategories] = useState<Category[]>(() => {
         try {
@@ -1003,6 +1206,15 @@ const App: React.FC = () => {
             return saved ? JSON.parse(saved) : [];
         } catch (error) {
             console.error("Error reading recurring entries from localStorage", error);
+            return [];
+        }
+    });
+    const [budgetGoals, setBudgetGoals] = useState<BudgetGoal[]>(() => {
+        try {
+            const saved = localStorage.getItem('incomePlanner-budgetGoals');
+            return saved ? JSON.parse(saved) : [];
+        } catch (error) {
+            console.error("Error reading budget goals from localStorage", error);
             return [];
         }
     });
@@ -1044,6 +1256,10 @@ const App: React.FC = () => {
         localStorage.setItem('incomePlanner-recurringEntries', JSON.stringify(recurringEntries));
     }, [recurringEntries]);
     
+     useEffect(() => {
+        localStorage.setItem('incomePlanner-budgetGoals', JSON.stringify(budgetGoals));
+    }, [budgetGoals]);
+
     useEffect(() => {
         if (spreadsheetId) {
             localStorage.setItem('spreadsheetId', spreadsheetId);
@@ -1258,9 +1474,9 @@ const App: React.FC = () => {
             .reverse()
             .map(e => e.description);
         const uniqueRecent = [...new Set(recentDescriptions)];
-        const combined = [...incomeCategories.map(c => c.name), ...expenseCategories.map(c => c.name), ...uniqueRecent];
+        const combined = [...expenseCategories.map(c => c.name), ...uniqueRecent];
         return [...new Set(combined)];
-    }, [entries, incomeCategories, expenseCategories]);
+    }, [entries, expenseCategories]);
     
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const formatted = formatNumberInput(e.target.value);
@@ -1357,12 +1573,40 @@ const App: React.FC = () => {
 
     const currencySymbol = currencySymbols[selectedCurrency] ?? '$';
 
+    const renderPage = () => {
+        switch (currentPage) {
+            case 'planner':
+                return <PlannerPage
+                    entries={entries}
+                    amount={amount}
+                    description={description}
+                    error={error}
+                    currencySymbol={currencySymbol}
+                    totalBalance={totalBalance}
+                    suggestionList={suggestionList}
+                    incomeCategories={incomeCategories}
+                    expenseCategories={expenseCategories}
+                    handleAmountChange={handleAmountChange}
+                    setDescription={setDescription}
+                    handleAddEntry={handleAddEntry}
+                    onEditEntry={handleOpenEditModal}
+                    onDeleteEntry={handleDeleteEntry}
+                />;
+            case 'dashboard':
+                return <DashboardPage entries={entries} currencySymbol={currencySymbol} />;
+            case 'goals':
+                return <GoalsPage entries={entries} budgetGoals={budgetGoals} currencySymbol={currencySymbol} expenseCategories={expenseCategories} />;
+            default:
+                return null;
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 font-sans flex flex-col">
             <header className="bg-white dark:bg-gray-800/80 dark:backdrop-blur-sm dark:border-b dark:border-gray-700 shadow-sm sticky top-0 z-10">
                 <div className="max-w-md mx-auto px-4 py-3 flex justify-between items-center">
-                    <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-                        {currentPage === 'planner' ? 'Income Planner' : 'Dashboard'}
+                    <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100 capitalize">
+                        {currentPage === 'planner' ? 'Income Planner' : currentPage}
                     </h1>
                     <div className="flex items-center gap-2">
                         {isGapiReady && <SyncStatusIcon status={syncStatus} />}
@@ -1388,26 +1632,7 @@ const App: React.FC = () => {
             </header>
 
             <main className="flex-grow p-4 max-w-md mx-auto w-full flex flex-col">
-                {currentPage === 'planner' ? (
-                    <PlannerPage
-                        entries={entries}
-                        amount={amount}
-                        description={description}
-                        error={error}
-                        currencySymbol={currencySymbol}
-                        totalBalance={totalBalance}
-                        suggestionList={suggestionList}
-                        incomeCategories={incomeCategories}
-                        expenseCategories={expenseCategories}
-                        handleAmountChange={handleAmountChange}
-                        setDescription={setDescription}
-                        handleAddEntry={handleAddEntry}
-                        onEditEntry={handleOpenEditModal}
-                        onDeleteEntry={handleDeleteEntry}
-                    />
-                ) : (
-                    <DashboardPage entries={entries} currencySymbol={currencySymbol} />
-                )}
+                {renderPage()}
             </main>
             
             <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 z-10">
@@ -1417,6 +1642,9 @@ const App: React.FC = () => {
                     </button>
                     <button onClick={() => setCurrentPage('dashboard')} className={`flex-1 py-3 text-center transition-colors ${currentPage === 'dashboard' ? 'text-blue-500 dark:text-blue-400 border-t-2 border-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
                         Dashboard
+                    </button>
+                    <button onClick={() => setCurrentPage('goals')} className={`flex-1 py-3 text-center transition-colors ${currentPage === 'goals' ? 'text-blue-500 dark:text-blue-400 border-t-2 border-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                        Goals
                     </button>
                 </div>
             </nav>
@@ -1432,6 +1660,8 @@ const App: React.FC = () => {
                 setExpenseCategories={setExpenseCategories}
                 recurringEntries={recurringEntries}
                 setRecurringEntries={setRecurringEntries}
+                budgetGoals={budgetGoals}
+                setBudgetGoals={setBudgetGoals}
                 currencySymbol={currencySymbol}
                 isSignedIn={isSignedIn}
                 syncStatus={syncStatus}

@@ -25,3 +25,11 @@ export interface RecurringEntry {
   startDate: string; // YYYY-MM-DD
   nextDueDate: string; // YYYY-MM-DD
 }
+
+export interface BudgetGoal {
+  id: number;
+  name: string; // Matches an expense category for 'spending' type, or a custom name for 'saving'
+  targetAmount: number;
+  type: 'spending' | 'saving';
+  month: string; // Format: YYYY-MM
+}
