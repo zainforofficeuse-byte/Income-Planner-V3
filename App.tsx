@@ -49,6 +49,48 @@ const formatNumberInput = (input: string): string => {
     return parseInt(digitsOnly, 10).toLocaleString('en-US');
 };
 
+interface MergeDataModalProps {
+    isOpen: boolean;
+    onKeepCloud: () => void;
+    onKeepLocal: () => void;
+    onMerge: () => void;
+}
+
+const MergeDataModal: React.FC<MergeDataModalProps> = ({ isOpen, onKeepCloud, onKeepLocal, onMerge }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4" >
+            <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl p-6 flex flex-col animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Sync Conflict</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">You have data saved on this device and in your Google Account. How would you like to proceed?</p>
+                
+                <div className="space-y-3">
+                    <button onClick={onKeepCloud} className="w-full text-left p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                        <p className="font-semibold text-gray-800 dark:text-gray-200">Use Google Sheets Data</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Replaces device data with cloud data.</p>
+                    </button>
+                    <button onClick={onKeepLocal} className="w-full text-left p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+                        <p className="font-semibold text-gray-800 dark:text-gray-200">Use Device Data</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Replaces cloud data with device data.</p>
+                    </button>
+                     <button onClick={onMerge} className="w-full text-left p-4 bg-blue-100 dark:bg-blue-900/50 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/80 transition">
+                        <p className="font-semibold text-blue-800 dark:text-blue-300">Merge Both</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">Combines data from both sources (Recommended).</p>
+                    </button>
+                </div>
+            </div>
+             <style>{`
+                @keyframes fade-in-scale {
+                    from { opacity: 0; transform: scale(0.95); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+                .animate-fade-in-scale { animation: fade-in-scale 0.2s ease-out forwards; }
+            `}</style>
+        </div>
+    );
+};
+
 interface BudgetManagerProps {
     budgetGoals: BudgetGoal[];
     setBudgetGoals: React.Dispatch<React.SetStateAction<BudgetGoal[]>>;
@@ -1222,11 +1264,14 @@ const App: React.FC = () => {
     const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
     const [entryToEdit, setEntryToEdit] = useState<Entry | null>(null);
 
+    // Google Sync State
     const [isGapiReady, setIsGapiReady] = useState(false);
     const [isSignedIn, setIsSignedIn] = useState(false);
     const [userInfo, setUserInfo] = useState<any>(null);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
     const [spreadsheetId, setSpreadsheetId] = useState<string | null>(() => localStorage.getItem('spreadsheetId'));
+    const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+    const [cloudEntries, setCloudEntries] = useState<Entry[] | null>(null);
 
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
         if (typeof window === 'undefined') return 'light';
@@ -1300,45 +1345,46 @@ const App: React.FC = () => {
         if (signedIn) {
             const profile = (window as any).gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile();
             setUserInfo({ name: profile.getName(), email: profile.getEmail(), imageUrl: profile.getImageUrl() });
-            setSyncStatus('syncing');
         } else {
             setUserInfo(null);
             setSyncStatus('idle');
+            setSpreadsheetId(null);
         }
     };
-
+    
     const findOrCreateSpreadsheet = useCallback(async () => {
-        if (spreadsheetId) return spreadsheetId;
+        let id = spreadsheetId;
+        if (id) return id;
+    
         try {
             const response = await (window as any).gapi.client.drive.files.list({
                 q: `mimeType='application/vnd.google-apps.spreadsheet' and name='${SPREADSHEET_NAME}' and trashed=false`,
                 fields: 'files(id, name)',
             });
+    
             if (response.result.files.length > 0) {
-                const id = response.result.files[0].id;
-                setSpreadsheetId(id);
-                return id;
+                id = response.result.files[0].id;
             } else {
                 const newSheet = await (window as any).gapi.client.sheets.spreadsheets.create({
                     properties: { title: SPREADSHEET_NAME },
                 });
-                const id = newSheet.result.spreadsheetId;
-                 await (window as any).gapi.client.sheets.spreadsheets.values.append({
+                id = newSheet.result.spreadsheetId;
+                await (window as any).gapi.client.sheets.spreadsheets.values.append({
                     spreadsheetId: id,
                     range: 'A1:F1',
                     valueInputOption: 'USER_ENTERED',
                     resource: { values: [['ID', 'Amount', 'Description', 'IsIncome', 'Date', 'Time']] },
                 });
-                setSpreadsheetId(id);
-                return id;
             }
+            setSpreadsheetId(id);
+            return id;
         } catch (err) {
             console.error("Error finding or creating spreadsheet", err);
             setSyncStatus('error');
             return null;
         }
     }, [spreadsheetId]);
-
+    
     const loadEntriesFromSheet = useCallback(async (sheetId: string) => {
         try {
             const response = await (window as any).gapi.client.sheets.spreadsheets.values.get({
@@ -1346,29 +1392,75 @@ const App: React.FC = () => {
                 range: 'A2:F',
             });
             const values = response.result.values || [];
-            const loadedEntries: Entry[] = values.map((row: any[]) => ({
+            return values.map((row: any[]) => ({
                 id: Number(row[0]),
                 amount: parseFloat(row[1]),
                 description: row[2],
                 isIncome: row[3] === 'TRUE',
                 date: row[4],
                 time: row[5],
-            }));
-            setEntries(loadedEntries);
-            setSyncStatus('synced');
+            })).filter(e => e.id && !isNaN(e.amount));
         } catch (err) {
             console.error("Error loading entries from sheet", err);
             setSyncStatus('error');
+            return [];
         }
     }, []);
+
+    const syncAllLocalEntriesToSheet = useCallback(async (sheetId: string) => {
+        setSyncStatus('syncing');
+        try {
+            // 1. Clear the sheet to avoid duplicates.
+            await (window as any).gapi.client.sheets.spreadsheets.values.clear({
+                spreadsheetId: sheetId,
+                range: 'A2:F'
+            });
+
+            // 2. Append all local entries if any exist.
+            if (entries.length > 0) {
+                 const values = entries.map(e => [e.id, e.amount, e.description, e.isIncome, e.date, e.time]);
+                 await (window as any).gapi.client.sheets.spreadsheets.values.append({
+                    spreadsheetId: sheetId,
+                    range: 'A:F',
+                    valueInputOption: 'USER_ENTERED',
+                    resource: { values }
+                });
+            }
+            setSyncStatus('synced');
+        } catch (err) {
+            console.error('Failed to sync all local entries to sheet', err);
+            setSyncStatus('error');
+        }
+    }, [entries]);
     
+    // This effect handles the initial data load and merge conflict resolution on sign-in.
     useEffect(() => {
         if (isSignedIn && isGapiReady) {
+            setSyncStatus('syncing');
             findOrCreateSpreadsheet().then(id => {
-                if (id) loadEntriesFromSheet(id);
+                if (id) {
+                    loadEntriesFromSheet(id).then(sheetEntries => {
+                        const localEntries = entries;
+                        // If there are entries in both cloud and local, prompt user to resolve.
+                        if (sheetEntries.length > 0 && localEntries.length > 0) {
+                            setCloudEntries(sheetEntries);
+                            setIsMergeModalOpen(true);
+                        } else if (sheetEntries.length > 0) {
+                            // Only cloud has data, so use it.
+                            setEntries(sheetEntries);
+                            setSyncStatus('synced');
+                        } else if (localEntries.length > 0) {
+                            // Only local has data, so upload it.
+                            syncAllLocalEntriesToSheet(id);
+                        } else {
+                            // Both are empty.
+                            setSyncStatus('synced');
+                        }
+                    });
+                }
             });
         }
-    }, [isSignedIn, isGapiReady, findOrCreateSpreadsheet, loadEntriesFromSheet]);
+    }, [isSignedIn, isGapiReady, findOrCreateSpreadsheet, loadEntriesFromSheet, syncAllLocalEntriesToSheet]);
     
     const handleSignIn = () => (window as any).gapi.auth2.getAuthInstance().signIn();
     const handleSignOut = () => (window as any).gapi.auth2.getAuthInstance().signOut();
@@ -1404,7 +1496,7 @@ const App: React.FC = () => {
         }
     };
     
-    // Effect to process recurring entries on app load
+    // Effect to process recurring entries on app load. This acts as our "daily automatic update".
     useEffect(() => {
         const processRecurring = () => {
             const today = new Date();
@@ -1416,14 +1508,15 @@ const App: React.FC = () => {
                 let updatedRecurring = { ...recurring };
     
                 while (nextDueDate <= today) {
-                    newEntries.push({
+                    const newEntry = {
                         id: Date.now() + Math.random(),
                         amount: recurring.amount,
                         description: recurring.description,
                         isIncome: recurring.isIncome,
-                        date: nextDueDate.toISOString().split('T')[0],
+                        date: nextDueDate.toLocaleDateString('en-CA'),
                         time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-                    });
+                    };
+                    newEntries.push(newEntry);
     
                     if (recurring.frequency === 'daily') {
                         nextDueDate.setDate(nextDueDate.getDate() + 1);
@@ -1441,10 +1534,21 @@ const App: React.FC = () => {
             if (newEntries.length > 0) {
                 setEntries(prev => [...prev, ...newEntries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
                 setRecurringEntries(updatedRecurringEntries);
+
+                // If signed in, sync these new automatic entries to the sheet
+                if (isSignedIn && spreadsheetId) {
+                    setSyncStatus('syncing');
+                    const values = newEntries.map(e => [e.id, e.amount, e.description, e.isIncome, e.date, e.time]);
+                     (window as any).gapi.client.sheets.spreadsheets.values.append({
+                        spreadsheetId, range: 'A:F', valueInputOption: 'USER_ENTERED', resource: { values }
+                    }).then(() => setSyncStatus('synced')).catch(() => setSyncStatus('error'));
+                }
             }
         };
     
         processRecurring();
+        // This effect should only run once on mount, so dependencies are intentionally empty.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
 
@@ -1537,7 +1641,7 @@ const App: React.FC = () => {
                                 .then(() => setSyncStatus('synced'))
                                 .catch(() => setSyncStatus('error'));
                         } else {
-                            setSyncStatus('synced');
+                            setSyncStatus('synced'); // Entry was not in sheet, so we are "synced"
                         }
                     }).catch(() => setSyncStatus('error'));
             }
@@ -1563,7 +1667,11 @@ const App: React.FC = () => {
                            .then(() => setSyncStatus('synced'))
                            .catch(() => setSyncStatus('error'));
                     } else {
-                        setSyncStatus('synced');
+                        // If not found, append it as a new entry
+                         const values = [[updatedEntry.id, updatedEntry.amount, updatedEntry.description, updatedEntry.isIncome, updatedEntry.date, updatedEntry.time]];
+                        (window as any).gapi.client.sheets.spreadsheets.values.append({
+                            spreadsheetId, range: 'A:F', valueInputOption: 'USER_ENTERED', resource: { values }
+                        }).then(() => setSyncStatus('synced')).catch(() => setSyncStatus('error'));
                     }
                 }).catch(() => setSyncStatus('error'));
         }
@@ -1572,6 +1680,47 @@ const App: React.FC = () => {
     };
 
     const currencySymbol = currencySymbols[selectedCurrency] ?? '$';
+    
+    // --- Merge Modal Handlers ---
+    const handleKeepCloud = () => {
+        if (cloudEntries) setEntries(cloudEntries);
+        setIsMergeModalOpen(false);
+        setCloudEntries(null);
+        setSyncStatus('synced');
+    };
+    
+    const handleKeepLocal = () => {
+        if (spreadsheetId) syncAllLocalEntriesToSheet(spreadsheetId);
+        setIsMergeModalOpen(false);
+        setCloudEntries(null);
+    };
+
+    const handleMerge = async () => {
+        if (cloudEntries && spreadsheetId) {
+            setSyncStatus('syncing');
+            const cloudIds = new Set(cloudEntries.map(e => e.id));
+            const localOnlyEntries = entries.filter(e => !cloudIds.has(e.id));
+    
+            const mergedEntries = [...cloudEntries, ...localOnlyEntries];
+            setEntries(mergedEntries);
+    
+            if (localOnlyEntries.length > 0) {
+                 const values = localOnlyEntries.map(e => [e.id, e.amount, e.description, e.isIncome, e.date, e.time]);
+                 try {
+                    await (window as any).gapi.client.sheets.spreadsheets.values.append({
+                        spreadsheetId, range: 'A:F', valueInputOption: 'USER_ENTERED', resource: { values }
+                    });
+                    setSyncStatus('synced');
+                 } catch(e) {
+                     setSyncStatus('error');
+                 }
+            } else {
+                setSyncStatus('synced');
+            }
+        }
+        setIsMergeModalOpen(false);
+        setCloudEntries(null);
+    };
 
     const renderPage = () => {
         switch (currentPage) {
@@ -1678,6 +1827,13 @@ const App: React.FC = () => {
                 entry={entryToEdit}
                 onSave={handleUpdateEntry}
                 currencySymbol={currencySymbol}
+            />
+
+            <MergeDataModal
+                isOpen={isMergeModalOpen}
+                onKeepCloud={handleKeepCloud}
+                onKeepLocal={handleKeepLocal}
+                onMerge={handleMerge}
             />
 
             <style>{`
