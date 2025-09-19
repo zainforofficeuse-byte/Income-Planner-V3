@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Entry, CurrencySymbols, Category, RecurringEntry } from './types';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 
 // Assumes GOOGLE_API_KEY and GOOGLE_CLIENT_ID are available in the environment
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
@@ -850,6 +850,34 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
         return { totalIncome, totalExpense, incomeByCategory, expenseByCategory };
     }, [entries]);
 
+    const { dailyIncome, dailyExpense } = useMemo(() => {
+        const todayStr = new Date().toLocaleDateString('en-CA');
+        const todaysEntries = entries.filter(e => e.date === todayStr);
+        const dailyIncome = todaysEntries.filter(e => e.isIncome).reduce((sum, e) => sum + e.amount, 0);
+        const dailyExpense = todaysEntries.filter(e => !e.isIncome).reduce((sum, e) => sum + e.amount, 0);
+        return { dailyIncome, dailyExpense };
+    }, [entries]);
+
+    const weeklyChartData = useMemo(() => {
+        const data: { name: string; income: number; expense: number }[] = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date(today);
+            date.setDate(date.getDate() - i);
+            const dateStr = date.toLocaleDateString('en-CA');
+            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+            
+            const dayEntries = entries.filter(e => e.date === dateStr);
+            const income = dayEntries.filter(e => e.isIncome).reduce((sum, e) => sum + e.amount, 0);
+            const expense = dayEntries.filter(e => !e.isIncome).reduce((sum, e) => sum + e.amount, 0);
+
+            data.push({ name: dayName, income, expense });
+        }
+        return data;
+    }, [entries]);
+
     return (
         <div className="space-y-6 overflow-y-auto pb-24">
             <div className="grid grid-cols-2 gap-4 text-center">
@@ -861,6 +889,48 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
                     <p className="text-sm font-medium text-red-800 dark:text-red-300">Total Expense</p>
                     <p className="text-xl font-bold text-red-700 dark:text-red-200">{currencySymbol} {totalExpense.toLocaleString()}</p>
                 </div>
+            </div>
+
+            <div className="bg-blue-100 dark:bg-blue-900/60 p-4 rounded-2xl">
+                <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2 text-center">Today's Summary</h3>
+                <div className="flex justify-around items-center">
+                     <div className="text-center">
+                        <p className="text-xs text-green-700 dark:text-green-300">Income</p>
+                        <p className="text-lg font-bold text-green-600 dark:text-green-200">{currencySymbol}{dailyIncome.toLocaleString()}</p>
+                    </div>
+                     <div className="text-center">
+                        <p className="text-xs text-red-700 dark:text-red-300">Expense</p>
+                        <p className="text-lg font-bold text-red-600 dark:text-red-200">{currencySymbol}{dailyExpense.toLocaleString()}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
+                <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Last 7 Days</h3>
+                {weeklyChartData.some(d => d.income > 0 || d.expense > 0) ? (
+                    <div style={{ width: '100%', height: 250 }}>
+                        <ResponsiveContainer>
+                            <BarChart data={weeklyChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                                <XAxis dataKey="name" tick={{ fill: 'currentColor', fontSize: 12 }} />
+                                <YAxis tick={{ fill: 'currentColor', fontSize: 12 }} />
+                                <Tooltip
+                                    contentStyle={{ 
+                                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '0.75rem',
+                                    }}
+                                    cursor={{ fill: 'rgba(209, 213, 219, 0.3)'}}
+                                />
+                                <Legend wrapperStyle={{fontSize: "12px"}}/>
+                                <Bar dataKey="income" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="expense" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No activity in the last 7 days.</p>
+                )}
             </div>
             
             <BreakdownDisplay title="Income by Category" data={incomeByCategory} total={totalIncome} isIncome={true} currencySymbol={currencySymbol} />
@@ -1163,13 +1233,11 @@ const App: React.FC = () => {
 
 
     useEffect(() => {
-        const root = window.document.documentElement;
+        const htmlElement = document.documentElement;
         if (theme === 'dark') {
-            root.classList.add('dark');
-            document.querySelector('html')?.classList.add('dark');
+            htmlElement.classList.add('dark');
         } else {
-            root.classList.remove('dark');
-            document.querySelector('html')?.classList.remove('dark');
+            htmlElement.classList.remove('dark');
         }
         localStorage.setItem('theme', theme);
     }, [theme]);
