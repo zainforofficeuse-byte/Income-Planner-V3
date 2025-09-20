@@ -479,10 +479,11 @@ interface SettingsModalProps {
     currencySymbol: string;
     onExportData: () => void;
     onImportData: () => void;
-    googleClientId?: string;
     userProfile: { name: string; email: string; picture: string; } | null;
     onGoogleSignIn: () => void;
     onGoogleSignOut: () => void;
+    syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
+    isGoogleSyncConfigured: boolean;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
@@ -490,11 +491,47 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
     recurringEntries, setRecurringEntries, budgetGoals, setBudgetGoals, currencySymbol,
     onExportData, onImportData,
-    googleClientId, userProfile, onGoogleSignIn, onGoogleSignOut
+    userProfile, onGoogleSignIn, onGoogleSignOut, syncStatus, isGoogleSyncConfigured
 }) => {
     if (!isOpen) return null;
     // FIX: Replaced `aistudiocdn` with `React`
     const [activeTab, setActiveTab] = React.useState<'currency' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync'>('currency');
+
+    const SyncStatusIndicator: React.FC = () => {
+        if (!userProfile) return null;
+
+        const statusConfig = {
+            syncing: {
+                icon: <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>,
+                text: 'Syncing...',
+                color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300'
+            },
+            synced: {
+                icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>,
+                text: 'Data is up to date',
+                color: 'bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300'
+            },
+            error: {
+                icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>,
+                text: 'Sync failed. Retrying...',
+                color: 'bg-red-100 text-red-800 dark:bg-red-900/60 dark:text-red-300'
+            },
+            idle: {
+                icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M5.5 16a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 16h-8z" /></svg>,
+                text: 'Changes will sync automatically',
+                color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+            },
+        };
+
+        const currentStatus = statusConfig[syncStatus];
+        
+        return (
+             <div className={`p-2.5 rounded-lg flex items-center justify-center gap-2 text-sm font-medium mb-4 ${currentStatus.color}`}>
+                {currentStatus.icon}
+                <span>{currentStatus.text}</span>
+            </div>
+        );
+    };
 
     const renderContent = () => {
         switch (activeTab) {
@@ -503,32 +540,45 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                     <div>
                         <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Google Sync & Backup</h3>
                         
-                        <div className="text-center p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                            {userProfile ? (
-                                <div className="flex flex-col items-center">
-                                    <img src={userProfile.picture} alt="Profile" className="w-16 h-16 rounded-full mb-3" referrerPolicy="no-referrer" />
-                                    <p className="font-semibold text-gray-800 dark:text-gray-100">{userProfile.name}</p>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{userProfile.email}</p>
-                                    <button 
-                                        onClick={onGoogleSignOut}
-                                        className="px-6 py-2.5 bg-gray-200 text-gray-800 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
-                                    >
-                                        Sign Out
-                                    </button>
+                        {isGoogleSyncConfigured ? (
+                            <>
+                                <SyncStatusIndicator/>
+
+                                <div className="text-center p-4 bg-gray-100 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                                    {userProfile ? (
+                                        <div className="flex flex-col items-center">
+                                            <img src={userProfile.picture} alt="Profile" className="w-16 h-16 rounded-full mb-3" referrerPolicy="no-referrer" />
+                                            <p className="font-semibold text-gray-800 dark:text-gray-100">{userProfile.name}</p>
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{userProfile.email}</p>
+                                            <button 
+                                                onClick={onGoogleSignOut}
+                                                className="px-6 py-2.5 bg-gray-200 text-gray-800 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
+                                            >
+                                                Sign Out
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Connect your Google account to automatically back up and sync your data to a private Google Sheet.</p>
+                                            <button
+                                                onClick={onGoogleSignIn}
+                                                className="px-6 py-2.5 bg-blue-500 text-white font-semibold rounded-lg text-sm flex items-center justify-center gap-2 mx-auto"
+                                            >
+                                                <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.519-3.536-11.088-8.108l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.99,36.566,44,31.2,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
+                                                <span>Connect with Google</span>
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
-                            ) : (
-                                <>
-                                    <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Connect your Google account to back up and sync your data.</p>
-                                    <button
-                                        onClick={onGoogleSignIn}
-                                        className="px-6 py-2.5 bg-blue-500 text-white font-semibold rounded-lg text-sm flex items-center justify-center gap-2 mx-auto"
-                                    >
-                                        <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.519-3.536-11.088-8.108l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.99,36.566,44,31.2,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
-                                        <span>Connect with Google</span>
-                                    </button>
-                                </>
-                            )}
-                        </div>
+                            </>
+                        ) : (
+                            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/40 rounded-lg border border-yellow-200 dark:border-yellow-800/60">
+                                <h4 className="font-bold text-yellow-800 dark:text-yellow-200">Feature Not Configured</h4>
+                                <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                                    The Google Sync feature requires setup by an administrator. API Key and/or Client ID are missing.
+                                </p>
+                            </div>
+                        )}
 
                         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                              <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Local Data Management</h3>
@@ -1332,19 +1382,34 @@ const App: React.FC = () => {
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
 
-    // --- Google Sign-In State ---
-    const [googleClientId, setGoogleClientId] = React.useState(process.env.GOOGLE_CLIENT_ID);
+    // --- Google State ---
+    const googleClientId = process.env.GOOGLE_CLIENT_ID;
+    const apiKey = process.env.API_KEY;
+    const isGoogleSyncConfigured = !!(googleClientId && apiKey);
     const [tokenClient, setTokenClient] = React.useState<any>(null);
     const [userProfile, setUserProfile] = React.useState<{ name: string; email: string; picture: string; } | null>(null);
     const [accessToken, setAccessToken] = React.useState<string | null>(null);
+    const [syncStatus, setSyncStatus] = React.useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+    const [spreadsheetId, setSpreadsheetId] = React.useState<string | null>(() => localStorage.getItem('incomePlanner-spreadsheetId'));
 
-    // --- Google Sign-In Effects and Handlers ---
+
+    // --- Google Handlers & Effects ---
+    const handleGoogleSignOut = React.useCallback(() => {
+        if (accessToken) {
+            window.google?.accounts?.oauth2.revoke(accessToken, () => {});
+        }
+        setAccessToken(null);
+        setUserProfile(null);
+        setSpreadsheetId(null);
+        localStorage.removeItem('incomePlanner-spreadsheetId');
+    }, [accessToken]);
+
     React.useEffect(() => {
         const initializeGsi = () => {
-            if (window.google && window.google.accounts && googleClientId) {
+            if (window.google && googleClientId) {
                 const client = window.google.accounts.oauth2.initTokenClient({
                     client_id: googleClientId,
-                    scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email',
+                    scope: 'https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets',
                     callback: async (tokenResponse: any) => {
                         if (tokenResponse.access_token) {
                             setAccessToken(tokenResponse.access_token);
@@ -1357,9 +1422,7 @@ const App: React.FC = () => {
                                 setUserProfile({ name: profile.name, email: profile.email, picture: profile.picture });
                             } catch (error) {
                                 console.error("Error fetching user profile:", error);
-                                // Clear state on error
-                                setAccessToken(null);
-                                setUserProfile(null);
+                                handleGoogleSignOut();
                             }
                         }
                     },
@@ -1367,32 +1430,124 @@ const App: React.FC = () => {
                 setTokenClient(client);
             }
         };
-        // The GSI script is loaded asynchronously. We need to wait for it.
-        const script = document.getElementById('google-gsi-script');
-        if (script) {
-             script.onload = () => initializeGsi();
-        }
+
+        if (!isGoogleSyncConfigured) return;
+
         if (window.google) {
             initializeGsi();
+        } else {
+            const gsiScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+            if (gsiScript) {
+                gsiScript.addEventListener('load', initializeGsi);
+            }
         }
-    }, [googleClientId]);
+    }, [googleClientId, handleGoogleSignOut, isGoogleSyncConfigured]);
+
+    React.useEffect(() => {
+        const initializeGapi = async () => {
+            if (window.gapi && accessToken && apiKey) {
+                 await new Promise((resolve) => window.gapi.load('client', resolve));
+                 await window.gapi.client.init({
+                    apiKey: apiKey,
+                    discoveryDocs: [
+                        "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
+                        "https://www.googleapis.com/discovery/v1/apis/sheets/v4/rest"
+                    ],
+                });
+                window.gapi.client.setToken({ access_token: accessToken });
+            }
+        };
+        initializeGapi();
+    }, [accessToken, apiKey]);
 
     const handleGoogleSignIn = React.useCallback(() => {
-        if (tokenClient) {
-            tokenClient.requestAccessToken();
-        }
+        if (tokenClient) tokenClient.requestAccessToken();
     }, [tokenClient]);
 
-    const handleGoogleSignOut = React.useCallback(() => {
-        if (accessToken) {
-            window.google.accounts.oauth2.revoke(accessToken, () => {
-                setAccessToken(null);
-                setUserProfile(null);
-            });
+    // --- Background Sync Logic ---
+    const syncData = React.useCallback(async () => {
+        if (!accessToken || !window.gapi?.client?.sheets || !isGoogleSyncConfigured) {
+            return;
         }
-    }, [accessToken]);
-    
-    
+
+        setSyncStatus('syncing');
+        try {
+            let sheetId = spreadsheetId;
+            if (!sheetId) {
+                const fileListResponse = await window.gapi.client.drive.files.list({
+                    q: "name='IncomeExpenseAppData' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
+                    fields: 'files(id)',
+                });
+                if (fileListResponse.result.files && fileListResponse.result.files.length > 0) {
+                    sheetId = fileListResponse.result.files[0].id!;
+                } else {
+                    const createResponse = await window.gapi.client.sheets.spreadsheets.create({
+                        properties: { title: 'IncomeExpenseAppData' },
+                        sheets: [{
+                            properties: { title: 'Transactions' },
+                            data: [{ rowData: [{ values: [
+                                { userEnteredValue: { stringValue: 'ID' } },
+                                { userEnteredValue: { stringValue: 'Date' } },
+                                { userEnteredValue: { stringValue: 'Time' } },
+                                { userEnteredValue: { stringValue: 'Type' } },
+                                { userEnteredValue: { stringValue: 'Amount' } },
+                                { userEnteredValue: { stringValue: 'Description' } },
+                            ]}]}]
+                        }]
+                    });
+                    sheetId = createResponse.result.spreadsheetId!;
+                }
+                setSpreadsheetId(sheetId);
+                localStorage.setItem('incomePlanner-spreadsheetId', sheetId);
+            }
+            
+            const existingIdsResponse = await window.gapi.client.sheets.spreadsheets.values.get({
+                spreadsheetId: sheetId,
+                range: 'Transactions!A2:A',
+            });
+            const existingIds = new Set(existingIdsResponse.result.values?.flat().map(id => Number(id)) || []);
+
+            const newEntries = entries.filter(entry => !existingIds.has(entry.id));
+
+            if (newEntries.length === 0) {
+                setSyncStatus('synced');
+                return;
+            }
+
+            const rowsToAppend = newEntries.map(entry => [
+                entry.id, entry.date, entry.time, entry.isIncome ? 'Income' : 'Expense', entry.amount, entry.description
+            ]);
+            
+            await window.gapi.client.sheets.spreadsheets.values.append({
+                spreadsheetId: sheetId,
+                range: 'Transactions!A:F',
+                valueInputOption: 'USER_ENTERED',
+                requestBody: { values: rowsToAppend },
+            });
+
+            setSyncStatus('synced');
+        } catch (error: any) {
+            console.error("Google Sheets sync failed:", error);
+            if (error.result?.error?.code === 401) handleGoogleSignOut();
+            setSyncStatus('error');
+        }
+    }, [accessToken, entries, spreadsheetId, handleGoogleSignOut, isGoogleSyncConfigured]);
+
+    React.useEffect(() => {
+        const handler = setTimeout(() => {
+            if (accessToken) syncData();
+        }, 2000);
+        return () => clearTimeout(handler);
+    }, [entries, accessToken, syncData]);
+
+    React.useEffect(() => {
+        const interval = setInterval(() => {
+            if (accessToken) syncData();
+        }, 60000);
+        return () => clearInterval(interval);
+    }, [accessToken, syncData]);
+
+
     // --- LocalStorage Persistence ---
     // FIX: Replaced `aistudiocdn` with `React`
     React.useEffect(() => {
@@ -1713,10 +1868,11 @@ const App: React.FC = () => {
                 currencySymbol={currencySymbol}
                 onExportData={handleExportData}
                 onImportData={handleImportData}
-                googleClientId={googleClientId}
                 userProfile={userProfile}
                 onGoogleSignIn={handleGoogleSignIn}
                 onGoogleSignOut={handleGoogleSignOut}
+                syncStatus={syncStatus}
+                isGoogleSyncConfigured={isGoogleSyncConfigured}
             />
 
             <EditEntryModal
