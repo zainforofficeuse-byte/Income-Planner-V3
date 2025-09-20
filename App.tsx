@@ -1359,8 +1359,8 @@ const App: React.FC = () => {
     const [entryToEdit, setEntryToEdit] = useState<Entry | null>(null);
 
     // Google Sync State
-    const [isGapiReady, setIsGapiReady] = useState(false);
-    const [isSignedIn, setIsSignedIn] = useState(false);
+    const [tokenClient, setTokenClient] = useState<any>(null);
+    const [accessToken, setAccessToken] = useState<string | null>(null);
     const [userInfo, setUserInfo] = useState<any>(null);
     const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
     const [spreadsheetId, setSpreadsheetId] = useState<string | null>(() => localStorage.getItem('spreadsheetId'));
@@ -1407,45 +1407,75 @@ const App: React.FC = () => {
         }
     }, [spreadsheetId]);
 
+    // --- Google API and GIS Initialization ---
      useEffect(() => {
-        const initClient = () => {
-            if (!GOOGLE_API_KEY || !GOOGLE_CLIENT_ID) {
-                console.error("Google API Key or Client ID is missing.");
+        const gapiScript = document.createElement('script');
+        gapiScript.src = 'https://apis.google.com/js/api.js';
+        gapiScript.async = true;
+        gapiScript.defer = true;
+        gapiScript.onload = () => {
+            (window as any).gapi.load('client', () => {
+                if (!GOOGLE_API_KEY) {
+                    console.error("Google API Key is missing.");
+                    setSyncStatus('error');
+                    return;
+                }
+                (window as any).gapi.client.init({
+                    apiKey: GOOGLE_API_KEY,
+                    discoveryDocs: DISCOVERY_DOCS,
+                }).catch((err: any) => {
+                    console.error("Error initializing GAPI client", err);
+                    setSyncStatus('error');
+                });
+            });
+        };
+        document.body.appendChild(gapiScript);
+
+        const gisScript = document.createElement('script');
+        gisScript.src = 'https://accounts.google.com/gsi/client';
+        gisScript.async = true;
+        gisScript.defer = true;
+        gisScript.onload = () => {
+            if (!GOOGLE_CLIENT_ID) {
+                console.error("Google Client ID is missing.");
                 setSyncStatus('error');
                 return;
             }
-            (window as any).gapi.client.init({
-                apiKey: GOOGLE_API_KEY,
-                clientId: GOOGLE_CLIENT_ID,
+            const client = (window as any).google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
                 scope: SCOPES,
-                discoveryDocs: DISCOVERY_DOCS,
-            }).then(() => {
-                const authInstance = (window as any).gapi.auth2.getAuthInstance();
-                authInstance.isSignedIn.listen(updateSigninStatus);
-                updateSigninStatus(authInstance.isSignedIn.get());
-                setIsGapiReady(true);
-            }).catch((err: any) => {
-                console.error("Error initializing GAPI client", err);
-                setSyncStatus('error');
+                callback: async (tokenResponse: any) => {
+                    if (tokenResponse.error) {
+                        console.error('Google Auth Error:', tokenResponse.error);
+                        setSyncStatus('error');
+                        return;
+                    }
+                    const token = tokenResponse.access_token;
+                    setAccessToken(token);
+                    (window as any).gapi.client.setToken({ access_token: token });
+                    
+                    try {
+                        const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                            headers: { Authorization: `Bearer ${token}` }
+                        });
+                        if (!res.ok) throw new Error('Failed to fetch user info');
+                        const profile = await res.json();
+                        setUserInfo({ name: profile.name, email: profile.email, imageUrl: profile.picture });
+                    } catch (e) {
+                        console.error("Could not fetch user info", e);
+                    }
+                },
             });
+            setTokenClient(client);
         };
-        if ((window as any).gapi) {
-            (window as any).gapi.load('client:auth2', initClient);
-        }
+        document.body.appendChild(gisScript);
+
+        return () => {
+            document.body.removeChild(gapiScript);
+            document.body.removeChild(gisScript);
+        };
     }, []);
 
-    const updateSigninStatus = (signedIn: boolean) => {
-        setIsSignedIn(signedIn);
-        if (signedIn) {
-            const profile = (window as any).gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile();
-            setUserInfo({ name: profile.getName(), email: profile.getEmail(), imageUrl: profile.getImageUrl() });
-        } else {
-            setUserInfo(null);
-            setSyncStatus('idle');
-            setSpreadsheetId(null);
-        }
-    };
-    
     const findOrCreateSpreadsheet = useCallback(async () => {
         let id = spreadsheetId;
         if (id) return id;
@@ -1504,13 +1534,11 @@ const App: React.FC = () => {
     const syncAllLocalEntriesToSheet = useCallback(async (sheetId: string) => {
         setSyncStatus('syncing');
         try {
-            // 1. Clear the sheet to avoid duplicates.
             await (window as any).gapi.client.sheets.spreadsheets.values.clear({
                 spreadsheetId: sheetId,
                 range: 'A2:F'
             });
 
-            // 2. Append all local entries if any exist.
             if (entries.length > 0) {
                  const values = entries.map(e => [e.id, e.amount, e.description, e.isIncome, e.date, e.time]);
                  await (window as any).gapi.client.sheets.spreadsheets.values.append({
@@ -1527,37 +1555,41 @@ const App: React.FC = () => {
         }
     }, [entries]);
     
-    // This effect handles the initial data load and merge conflict resolution on sign-in.
     useEffect(() => {
-        if (isSignedIn && isGapiReady) {
+        if (accessToken) {
             setSyncStatus('syncing');
             findOrCreateSpreadsheet().then(id => {
                 if (id) {
                     loadEntriesFromSheet(id).then(sheetEntries => {
                         const localEntries = entries;
-                        // If there are entries in both cloud and local, prompt user to resolve.
                         if (sheetEntries.length > 0 && localEntries.length > 0) {
                             setCloudEntries(sheetEntries);
                             setIsMergeModalOpen(true);
                         } else if (sheetEntries.length > 0) {
-                            // Only cloud has data, so use it.
                             setEntries(sheetEntries);
                             setSyncStatus('synced');
                         } else if (localEntries.length > 0) {
-                            // Only local has data, so upload it.
                             syncAllLocalEntriesToSheet(id);
                         } else {
-                            // Both are empty.
                             setSyncStatus('synced');
                         }
                     });
                 }
             });
         }
-    }, [isSignedIn, isGapiReady, findOrCreateSpreadsheet, loadEntriesFromSheet, syncAllLocalEntriesToSheet]);
+    }, [accessToken, findOrCreateSpreadsheet, loadEntriesFromSheet, syncAllLocalEntriesToSheet, entries]);
     
-    const handleSignIn = () => (window as any).gapi.auth2.getAuthInstance().signIn();
-    const handleSignOut = () => (window as any).gapi.auth2.getAuthInstance().signOut();
+    const handleSignIn = () => tokenClient?.requestAccessToken({ prompt: '' });
+    
+    const handleSignOut = () => {
+        if (accessToken) {
+            (window as any).google.accounts.oauth2.revoke(accessToken, () => {});
+            setAccessToken(null);
+            setUserInfo(null);
+            setSyncStatus('idle');
+            setSpreadsheetId(null);
+        }
+    };
 
     const handleCreateBackup = async () => {
         if (!spreadsheetId) {
@@ -1590,7 +1622,6 @@ const App: React.FC = () => {
         }
     };
     
-    // Effect to process recurring entries on app load. This acts as our "daily automatic update".
     useEffect(() => {
         const processRecurring = () => {
             const today = new Date();
@@ -1629,8 +1660,7 @@ const App: React.FC = () => {
                 setEntries(prev => [...prev, ...newEntries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
                 setRecurringEntries(updatedRecurringEntries);
 
-                // If signed in, sync these new automatic entries to the sheet
-                if (isSignedIn && spreadsheetId) {
+                if (accessToken && spreadsheetId) {
                     setSyncStatus('syncing');
                     const values = newEntries.map(e => [e.id, e.amount, e.description, e.isIncome, e.date, e.time]);
                      (window as any).gapi.client.sheets.spreadsheets.values.append({
@@ -1641,7 +1671,6 @@ const App: React.FC = () => {
         };
     
         processRecurring();
-        // This effect should only run once on mount, so dependencies are intentionally empty.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -1702,7 +1731,7 @@ const App: React.FC = () => {
         };
 
         setEntries(prevEntries => [...prevEntries, newEntry]);
-        if (isSignedIn && spreadsheetId) {
+        if (accessToken && spreadsheetId) {
             setSyncStatus('syncing');
             const values = [[newEntry.id, newEntry.amount, newEntry.description, newEntry.isIncome, newEntry.date, newEntry.time]];
             (window as any).gapi.client.sheets.spreadsheets.values.append({
@@ -1713,7 +1742,7 @@ const App: React.FC = () => {
         setAmount('');
         setDescription('');
         setError('');
-    }, [amount, description, isSignedIn, spreadsheetId]);
+    }, [amount, description, accessToken, spreadsheetId]);
 
     const handleSelectCurrency = (currencyCode: string) => {
         setSelectedCurrency(currencyCode);
@@ -1722,7 +1751,7 @@ const App: React.FC = () => {
     const handleDeleteEntry = (id: number) => {
         if (window.confirm("Are you sure you want to delete this transaction?")) {
             setEntries(prev => prev.filter(e => e.id !== id));
-            if (isSignedIn && spreadsheetId) {
+            if (accessToken && spreadsheetId) {
                 setSyncStatus('syncing');
                 (window as any).gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A:A' })
                     .then((res: any) => {
@@ -1735,7 +1764,7 @@ const App: React.FC = () => {
                                 .then(() => setSyncStatus('synced'))
                                 .catch(() => setSyncStatus('error'));
                         } else {
-                            setSyncStatus('synced'); // Entry was not in sheet, so we are "synced"
+                            setSyncStatus('synced');
                         }
                     }).catch(() => setSyncStatus('error'));
             }
@@ -1749,7 +1778,7 @@ const App: React.FC = () => {
 
     const handleUpdateEntry = (updatedEntry: Entry) => {
         setEntries(prev => prev.map(e => e.id === updatedEntry.id ? updatedEntry : e));
-         if (isSignedIn && spreadsheetId) {
+         if (accessToken && spreadsheetId) {
             setSyncStatus('syncing');
              (window as any).gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A:F' })
                 .then((res: any) => {
@@ -1761,7 +1790,6 @@ const App: React.FC = () => {
                            .then(() => setSyncStatus('synced'))
                            .catch(() => setSyncStatus('error'));
                     } else {
-                        // If not found, append it as a new entry
                          const values = [[updatedEntry.id, updatedEntry.amount, updatedEntry.description, updatedEntry.isIncome, updatedEntry.date, updatedEntry.time]];
                         (window as any).gapi.client.sheets.spreadsheets.values.append({
                             spreadsheetId, range: 'A:F', valueInputOption: 'USER_ENTERED', resource: { values }
@@ -1913,7 +1941,7 @@ const App: React.FC = () => {
                         {currentPage === 'planner' ? 'Income Planner' : currentPage}
                     </h1>
                     <div className="flex items-center gap-2">
-                        {isGapiReady && <SyncStatusIcon status={syncStatus} />}
+                        {tokenClient && <SyncStatusIcon status={syncStatus} />}
                         <button onClick={handleThemeToggle} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" aria-label="Toggle theme">
                            {theme === 'light' ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1927,7 +1955,7 @@ const App: React.FC = () => {
                         </button>
                         <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" aria-label="Open settings">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0 3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                         </button>
@@ -1967,7 +1995,7 @@ const App: React.FC = () => {
                 budgetGoals={budgetGoals}
                 setBudgetGoals={setBudgetGoals}
                 currencySymbol={currencySymbol}
-                isSignedIn={isSignedIn}
+                isSignedIn={!!accessToken}
                 syncStatus={syncStatus}
                 userInfo={userInfo}
                 spreadsheetId={spreadsheetId}
