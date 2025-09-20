@@ -2,10 +2,10 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Entry, CurrencySymbols, Category, RecurringEntry, BudgetGoal } from './types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, LineChart, Line } from 'recharts';
 
-// Assumes GOOGLE_API_KEY and GOOGLE_CLIENT_ID are available in the environment
-const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+const GOOGLE_API_KEY = process.env.API_KEY;
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const SPREADSHEET_NAME = 'IncomePlannerData';
+const SPREADSHEET_NAME = 'IncomeExpenseAppData';
+const BACKUP_FOLDER_NAME = 'IncomeExpenseApp_Backups';
 const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
 const DISCOVERY_DOCS = [
     "https://sheets.googleapis.com/$discovery/rest?version=v4",
@@ -522,6 +522,7 @@ interface SettingsModalProps {
     setBudgetGoals: React.Dispatch<React.SetStateAction<BudgetGoal[]>>;
     currencySymbol: string;
     // Google Sync props
+    isGoogleSyncConfigured: boolean;
     isSignedIn: boolean;
     syncStatus: string;
     userInfo: any;
@@ -537,7 +538,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     isOpen, onClose, onSelectCurrency, selectedCurrency, 
     incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
     recurringEntries, setRecurringEntries, budgetGoals, setBudgetGoals, currencySymbol,
-    isSignedIn, syncStatus, userInfo, spreadsheetId, onSignIn, onSignOut, onBackup,
+    isGoogleSyncConfigured, isSignedIn, syncStatus, userInfo, spreadsheetId, onSignIn, onSignOut, onBackup,
     onExportData, onImportData
 }) => {
     if (!isOpen) return null;
@@ -546,36 +547,80 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     const renderContent = () => {
         switch (activeTab) {
             case 'sync':
+                let syncStatusDisplay = null;
+                if(isSignedIn) {
+                    let icon, text, bgColor, textColor;
+                    switch (syncStatus) {
+                        case 'syncing':
+                            icon = <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
+                            text = "Syncing data with Google Sheets...";
+                            bgColor = "bg-blue-100 dark:bg-blue-900/50";
+                            textColor = "text-blue-800 dark:text-blue-300";
+                            break;
+                        case 'synced':
+                            icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>;
+                            text = "All data is up to date.";
+                            bgColor = "bg-green-100 dark:bg-green-900/50";
+                            textColor = "text-green-800 dark:text-green-300";
+                            break;
+                        case 'error':
+                            icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>;
+                            text = "Sync failed. Please check connection.";
+                            bgColor = "bg-red-100 dark:bg-red-900/50";
+                            textColor = "text-red-800 dark:text-red-300";
+                            break;
+                        default: // 'idle'
+                            icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>;
+                            text = "Changes will sync automatically.";
+                            bgColor = "bg-gray-100 dark:bg-gray-700/50";
+                            textColor = "text-gray-800 dark:text-gray-300";
+                            break;
+                    }
+                    syncStatusDisplay = (
+                        <div className={`p-3 rounded-lg flex items-center gap-3 text-sm font-medium ${bgColor} ${textColor}`}>
+                            <div className="flex-shrink-0">{icon}</div>
+                            <span>{text}</span>
+                        </div>
+                    );
+                }
                 return (
                     <div>
                         <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Google Sync & Backup</h3>
-                        {!isSignedIn ? (
-                            <div className="text-center">
-                                <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Connect your Google account to automatically save and sync your transactions to a private Google Sheet.</p>
-                                <button 
-                                    onClick={onSignIn} 
-                                    className="px-6 py-2.5 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition flex items-center justify-center gap-2 mx-auto"
-                                >
-                                    <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48px" height="48px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.519-3.536-11.088-8.108l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.99,36.566,44,31.2,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
-                                    <span>Connect with Google</span>
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="space-y-4">
-                                <div className="p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg flex items-center gap-3">
-                                    <img src={userInfo?.imageUrl} alt="User" className="w-10 h-10 rounded-full" />
-                                    <div>
-                                        <p className="font-semibold text-sm text-gray-800 dark:text-gray-100">{userInfo?.name}</p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">{userInfo?.email}</p>
-                                    </div>
+                        {isGoogleSyncConfigured ? (
+                            !isSignedIn ? (
+                                <div className="text-center">
+                                    <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Connect your Google account to automatically save and sync your transactions to a private Google Sheet.</p>
+                                    <button 
+                                        onClick={onSignIn} 
+                                        className="px-6 py-2.5 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition flex items-center justify-center gap-2 mx-auto"
+                                    >
+                                        <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48px" height="48px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.519-3.536-11.088-8.108l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.99,36.566,44,31.2,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
+                                        <span>Connect with Google</span>
+                                    </button>
                                 </div>
-                                {spreadsheetId && (
-                                     <a href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`} target="_blank" rel="noopener noreferrer" className="block w-full text-center px-4 py-2 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold rounded-lg text-sm hover:bg-green-200 dark:hover:bg-green-800 transition">View Synced Sheet</a>
-                                )}
-                                <button onClick={onBackup} disabled={syncStatus === 'syncing'} className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50">
-                                    {syncStatus === 'syncing' ? 'Syncing...' : 'Create Manual Backup'}
-                                </button>
-                                <button onClick={onSignOut} className="w-full px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 font-semibold rounded-lg text-sm hover:bg-red-200 dark:hover:bg-red-800 transition">Disconnect</button>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg flex items-center gap-3">
+                                        <img src={userInfo?.imageUrl} alt="User" className="w-10 h-10 rounded-full" />
+                                        <div>
+                                            <p className="font-semibold text-sm text-gray-800 dark:text-gray-100">{userInfo?.name}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">{userInfo?.email}</p>
+                                        </div>
+                                    </div>
+                                    {syncStatusDisplay}
+                                    {spreadsheetId && (
+                                        <a href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`} target="_blank" rel="noopener noreferrer" className="block w-full text-center px-4 py-2 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold rounded-lg text-sm hover:bg-green-200 dark:hover:bg-green-800 transition">View Synced Sheet</a>
+                                    )}
+                                    <button onClick={onBackup} disabled={syncStatus === 'syncing'} className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50">
+                                        {syncStatus === 'syncing' ? 'Syncing...' : 'Create Manual Backup'}
+                                    </button>
+                                    <button onClick={onSignOut} className="w-full px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 font-semibold rounded-lg text-sm hover:bg-red-200 dark:hover:bg-red-800 transition">Disconnect</button>
+                                </div>
+                            )
+                        ) : (
+                            <div className="p-4 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg text-center">
+                                <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">Google Sync is unavailable.</p>
+                                <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">The application is not configured with the necessary Google API credentials.</p>
                             </div>
                         )}
                         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
@@ -1359,6 +1404,7 @@ const App: React.FC = () => {
     const [entryToEdit, setEntryToEdit] = useState<Entry | null>(null);
 
     // Google Sync State
+    const [isGoogleSyncConfigured] = useState(!!(GOOGLE_API_KEY && GOOGLE_CLIENT_ID));
     const [tokenClient, setTokenClient] = useState<any>(null);
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const [userInfo, setUserInfo] = useState<any>(null);
@@ -1409,17 +1455,18 @@ const App: React.FC = () => {
 
     // --- Google API and GIS Initialization ---
      useEffect(() => {
+        if (!isGoogleSyncConfigured) {
+            console.warn("Google Sync is disabled because API key or Client ID is missing.");
+            if(syncStatus !== 'error') setSyncStatus('error');
+            return;
+        }
+
         const gapiScript = document.createElement('script');
         gapiScript.src = 'https://apis.google.com/js/api.js';
         gapiScript.async = true;
         gapiScript.defer = true;
         gapiScript.onload = () => {
             (window as any).gapi.load('client', () => {
-                if (!GOOGLE_API_KEY) {
-                    console.error("Google API Key is missing.");
-                    setSyncStatus('error');
-                    return;
-                }
                 (window as any).gapi.client.init({
                     apiKey: GOOGLE_API_KEY,
                     discoveryDocs: DISCOVERY_DOCS,
@@ -1436,13 +1483,8 @@ const App: React.FC = () => {
         gisScript.async = true;
         gisScript.defer = true;
         gisScript.onload = () => {
-            if (!GOOGLE_CLIENT_ID) {
-                console.error("Google Client ID is missing.");
-                setSyncStatus('error');
-                return;
-            }
             const client = (window as any).google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID,
+                client_id: GOOGLE_CLIENT_ID!,
                 scope: SCOPES,
                 callback: async (tokenResponse: any) => {
                     if (tokenResponse.error) {
@@ -1471,10 +1513,10 @@ const App: React.FC = () => {
         document.body.appendChild(gisScript);
 
         return () => {
-            document.body.removeChild(gapiScript);
-            document.body.removeChild(gisScript);
+            if (document.body.contains(gapiScript)) document.body.removeChild(gapiScript);
+            if (document.body.contains(gisScript)) document.body.removeChild(gisScript);
         };
-    }, []);
+    }, [isGoogleSyncConfigured, syncStatus]);
 
     const findOrCreateSpreadsheet = useCallback(async () => {
         let id = spreadsheetId;
@@ -1590,37 +1632,78 @@ const App: React.FC = () => {
             setSpreadsheetId(null);
         }
     };
+    
+    const findOrCreateFolder = useCallback(async (folderName: string): Promise<string | null> => {
+        try {
+            const response = await (window as any).gapi.client.drive.files.list({
+                q: `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`,
+                fields: 'files(id, name)',
+                spaces: 'drive',
+            });
 
-    const handleCreateBackup = async () => {
-        if (!spreadsheetId) {
-            alert('Cannot create backup. No spreadsheet connected.');
+            if (response.result.files && response.result.files.length > 0) {
+                return response.result.files[0].id;
+            } else {
+                const fileMetadata = {
+                    name: folderName,
+                    mimeType: 'application/vnd.google-apps.folder',
+                };
+                const createResponse = await (window as any).gapi.client.drive.files.create({
+                    resource: fileMetadata,
+                    fields: 'id',
+                });
+                return createResponse.result.id;
+            }
+        } catch (err) {
+            console.error("Error finding or creating Google Drive folder", err);
+            setSyncStatus('error');
+            return null;
+        }
+    }, []);
+
+    const handleCreateBackup = useCallback(async () => {
+        if (!isGoogleSyncConfigured || !accessToken) {
+            alert('Please connect to your Google account first.');
             return;
         }
         setSyncStatus('syncing');
-        const backupContent = JSON.stringify({
-            entries,
-            incomeCategories,
-            expenseCategories,
-            recurringEntries,
-            selectedCurrency,
-        }, null, 2);
-        const fileName = `IncomePlanner_Backup_${new Date().toISOString().split('T')[0]}.json`;
         try {
-            const fileMetadata = { name: fileName, mimeType: 'application/json' };
+            const folderId = await findOrCreateFolder(BACKUP_FOLDER_NAME);
+            if (!folderId) {
+                throw new Error("Could not find or create backup folder in Google Drive.");
+            }
+
+            const backupContent = JSON.stringify({
+                entries,
+                selectedCurrency,
+                incomeCategories,
+                expenseCategories,
+                recurringEntries,
+                budgetGoals,
+            }, null, 2);
+            const fileName = `IncomePlanner_Backup_${new Date().toISOString().split('T')[0]}.json`;
+
+            const fileMetadata = {
+                name: fileName,
+                mimeType: 'application/json',
+                parents: [folderId]
+            };
             const media = { mimeType: 'application/json', body: backupContent };
+
             await (window as any).gapi.client.drive.files.create({
                 resource: fileMetadata,
                 media: media,
                 fields: 'id'
             });
-            alert(`Backup "${fileName}" created successfully in your Google Drive.`);
+            alert(`Backup "${fileName}" created successfully in your Google Drive folder "${BACKUP_FOLDER_NAME}".`);
             setSyncStatus('synced');
         } catch (err) {
             console.error('Backup failed:', err);
-            alert('Failed to create backup.');
+            alert(`Failed to create backup: ${err instanceof Error ? err.message : 'Unknown error'}`);
             setSyncStatus('error');
         }
-    };
+    }, [isGoogleSyncConfigured, accessToken, findOrCreateFolder, entries, selectedCurrency, incomeCategories, expenseCategories, recurringEntries, budgetGoals]);
+
     
     useEffect(() => {
         const processRecurring = () => {
@@ -1941,7 +2024,7 @@ const App: React.FC = () => {
                         {currentPage === 'planner' ? 'Income Planner' : currentPage}
                     </h1>
                     <div className="flex items-center gap-2">
-                        {tokenClient && <SyncStatusIcon status={syncStatus} />}
+                        {isGoogleSyncConfigured && <SyncStatusIcon status={syncStatus} />}
                         <button onClick={handleThemeToggle} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" aria-label="Toggle theme">
                            {theme === 'light' ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1995,6 +2078,7 @@ const App: React.FC = () => {
                 budgetGoals={budgetGoals}
                 setBudgetGoals={setBudgetGoals}
                 currencySymbol={currencySymbol}
+                isGoogleSyncConfigured={isGoogleSyncConfigured}
                 isSignedIn={!!accessToken}
                 syncStatus={syncStatus}
                 userInfo={userInfo}
