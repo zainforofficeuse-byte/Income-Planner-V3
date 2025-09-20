@@ -1383,9 +1383,15 @@ const App: React.FC = () => {
     });
 
     // --- Google State ---
-    const googleClientId = process.env.GOOGLE_CLIENT_ID;
-    const apiKey = process.env.API_KEY;
-    const isGoogleSyncConfigured = !!(googleClientId && apiKey);
+    // --- IMPORTANT CONFIGURATION ---
+    // For the Google Sync feature to work, you must replace the placeholder API_KEY below.
+    // In a real production app, these values should be stored in environment variables
+    // and injected during the build process, not hardcoded.
+    // Get your credentials from the Google Cloud Console: https://console.cloud.google.com/
+    const googleClientId = "368572319708-ilhc8di33bkvnt01rg88kfmfce38bifr.apps.googleusercontent.com";
+    const apiKey = "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"; // <-- REPLACE THIS VALUE
+
+    const isGoogleSyncConfigured = !!(googleClientId && apiKey && apiKey !== "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");
     const [tokenClient, setTokenClient] = React.useState<any>(null);
     const [userProfile, setUserProfile] = React.useState<{ name: string; email: string; picture: string; } | null>(null);
     const [accessToken, setAccessToken] = React.useState<string | null>(null);
