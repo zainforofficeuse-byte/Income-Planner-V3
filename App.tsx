@@ -462,7 +462,6 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ title, categories, se
     );
 };
 
-
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -491,7 +490,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
     recurringEntries, setRecurringEntries, budgetGoals, setBudgetGoals, currencySymbol,
     onExportData, onImportData,
-    userProfile, onGoogleSignIn, onGoogleSignOut, syncStatus, isGoogleSyncConfigured
+    userProfile, onGoogleSignIn, onGoogleSignOut, syncStatus, isGoogleSyncConfigured,
 }) => {
     if (!isOpen) return null;
     // FIX: Replaced `aistudiocdn` with `React`
@@ -569,6 +568,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                             </button>
                                         </>
                                     )}
+                                </div>
+                                <div className="text-center mt-4">
+                                    <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">Privacy Policy</a>
                                 </div>
                             </>
                         ) : (
@@ -1390,7 +1392,9 @@ const App: React.FC = () => {
     // For Google Sheets sync to work, you must replace the placeholder value below with your actual Google API Key.
     // Get an API Key from the Google Cloud Console. See the administrator guide for instructions.
     // The sign-in button will work without this, but data syncing will fail until the key is provided.
-    const GOOGLE_API_KEY = "AIzaSyCuUSQNbKUX_2OYeuaZLLJgG2de8prd54c";
+    // FIX: Explicitly type GOOGLE_API_KEY as string to prevent TypeScript errors
+    // when comparing it to the placeholder string literal in subsequent checks.
+    const GOOGLE_API_KEY: string = "AIzaSyCuUSQNbKUX_2OYeuaZLLJgG2de8prd54c";
 
     const isGoogleSyncConfigured = !!googleClientId;
     const [tokenClient, setTokenClient] = React.useState<any>(null);
