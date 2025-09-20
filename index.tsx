@@ -13,7 +13,7 @@ const root = ReactDOM.createRoot(rootElement);
 // Simple router to handle the privacy policy page separately.
 const path = window.location.pathname;
 
-if (path === '/privacy-policy.html') {
+if (path === '/privacy-policy') {
   root.render(
     <React.StrictMode>
       <PrivacyPolicyPage />

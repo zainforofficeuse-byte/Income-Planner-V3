@@ -570,7 +570,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                     )}
                                 </div>
                                 <div className="text-center mt-4">
-                                    <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">Privacy Policy</a>
+                                    <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">Privacy Policy</a>
                                 </div>
                             </>
                         ) : (
@@ -1328,7 +1328,7 @@ const App: React.FC = () => {
     // FIX: Replaced `aistudiocdn` with `React`
     const [error, setError] = React.useState<string>('');
     // FIX: Replaced `aistudiocdn` with `React`
-    const [currentPage, setCurrentPage] = React.useState<'planner' | 'dashboard' | 'goals'>('planner');
+    const [currentPage, setCurrentPage] = React.useState<'planner' | 'dashboard' | 'goals'>('dashboard');
     
     // FIX: Replaced `aistudiocdn` with `React`
     const [incomeCategories, setIncomeCategories] = React.useState<Category[]>(() => {
