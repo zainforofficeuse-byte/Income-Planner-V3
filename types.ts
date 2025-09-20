@@ -33,3 +33,12 @@ export interface BudgetGoal {
   type: 'spending' | 'saving';
   month: string; // Format: YYYY-MM
 }
+
+// FIX: Declare the global `window.google` object to resolve TypeScript errors.
+// The Google Identity Services library is loaded via a script tag, and this
+// informs TypeScript about the `google` object attached to the window.
+declare global {
+  interface Window {
+    google: any;
+  }
+}

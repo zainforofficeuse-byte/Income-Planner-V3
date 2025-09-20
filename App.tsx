@@ -480,34 +480,73 @@ interface SettingsModalProps {
     currencySymbol: string;
     onExportData: () => void;
     onImportData: () => void;
+    // Google Sync props
+    isSignedIn: boolean;
+    userInfo: { name: string; email: string; picture: string; } | null;
+    onGoogleSignIn: () => void;
+    onGoogleSignOut: () => void;
+    onBackupToDrive: () => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
     isOpen, onClose, onSelectCurrency, selectedCurrency, 
     incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
     recurringEntries, setRecurringEntries, budgetGoals, setBudgetGoals, currencySymbol,
-    onExportData, onImportData
+    onExportData, onImportData,
+    isSignedIn, userInfo, onGoogleSignIn, onGoogleSignOut, onBackupToDrive
 }) => {
     if (!isOpen) return null;
     // FIX: Replaced `aistudiocdn` with `React`
     const [activeTab, setActiveTab] = React.useState<'currency' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync'>('currency');
+    
+    // Check if Google Client ID is provided
+    const isGoogleReady = !!process.env.GOOGLE_CLIENT_ID;
 
     const renderContent = () => {
         switch (activeTab) {
             case 'sync':
                 return (
                     <div>
-                        <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Connect with Google</h3>
-                        <div className="text-center">
-                            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Connect your Google account to automatically save and sync your transactions to a private Google Sheet.</p>
-                            <button 
-                                onClick={() => alert('Google Sync feature is coming soon!')}
-                                className="px-6 py-2.5 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition flex items-center justify-center gap-2 mx-auto"
-                            >
-                                <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48px" height="48px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.519-3.536-11.088-8.108l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.99,36.566,44,31.2,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
-                                <span>Connect with Google</span>
-                            </button>
-                        </div>
+                        <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Google Sync & Backup</h3>
+                        {isGoogleReady ? (
+                             isSignedIn && userInfo ? (
+                                <div className="text-center">
+                                    <img src={userInfo.picture} alt="profile" className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-gray-300 dark:border-gray-600" />
+                                    <p className="font-semibold text-gray-800 dark:text-gray-200">{userInfo.name}</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{userInfo.email}</p>
+                                    <button 
+                                        onClick={onGoogleSignOut}
+                                        className="px-5 py-2 bg-red-500 text-white font-semibold rounded-lg text-sm hover:bg-red-600 transition"
+                                    >
+                                        Sign Out
+                                    </button>
+                                     <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                                        <h4 className="text-md font-bold mb-2 text-gray-700 dark:text-gray-200">Google Drive</h4>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Save a full backup of your local data to a dedicated folder in your Google Drive.</p>
+                                        <button onClick={onBackupToDrive} className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.753-1.977A4.5 4.5 0 1113.5 13H5.5z" /><path d="M9 13l-2-2 1.41-1.41L10 12.17l3.59-3.58L15 10l-5 5-1-1z" /></svg>
+                                            <span>Backup to Drive</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center">
+                                    <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Connect your Google account to back up your data to Google Drive.</p>
+                                    <button 
+                                        onClick={onGoogleSignIn}
+                                        className="px-6 py-2.5 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition flex items-center justify-center gap-2 mx-auto"
+                                    >
+                                        <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.519-3.536-11.088-8.108l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.99,36.566,44,31.2,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
+                                        <span>Connect with Google</span>
+                                    </button>
+                                </div>
+                            )
+                        ) : (
+                             <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-900/50 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                                <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">Feature Not Configured</p>
+                                <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">Google Sync requires setup by the administrator. The feature is currently disabled.</p>
+                            </div>
+                        )}
 
                         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                              <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Local Data Management</h3>
@@ -1311,6 +1350,12 @@ const App: React.FC = () => {
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
     
+    // Google Sign-In State
+    const [tokenClient, setTokenClient] = React.useState<any>(null);
+    const [isSignedIn, setIsSignedIn] = React.useState(false);
+    const [userInfo, setUserInfo] = React.useState<{ name: string; email: string; picture: string; } | null>(null);
+
+    
     // --- LocalStorage Persistence ---
     // FIX: Replaced `aistudiocdn` with `React`
     React.useEffect(() => {
@@ -1398,6 +1443,46 @@ const App: React.FC = () => {
         }
         localStorage.setItem('theme', theme);
     }, [theme]);
+    
+     // Initialize Google Identity Services
+    React.useEffect(() => {
+        const initializeGsi = () => {
+            if (window.google && process.env.GOOGLE_CLIENT_ID) {
+                const client = window.google.accounts.oauth2.initTokenClient({
+                    client_id: process.env.GOOGLE_CLIENT_ID,
+                    scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets',
+                    callback: async (tokenResponse) => {
+                        if (tokenResponse && tokenResponse.access_token) {
+                            localStorage.setItem('google_token', tokenResponse.access_token);
+                            setIsSignedIn(true);
+                            try {
+                                const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                                    headers: { 'Authorization': `Bearer ${tokenResponse.access_token}` }
+                                });
+                                if (response.ok) {
+                                    const data = await response.json();
+                                    setUserInfo({ name: data.name, email: data.email, picture: data.picture });
+                                } else {
+                                    throw new Error('Failed to fetch user info');
+                                }
+                            } catch (err) {
+                                console.error(err);
+                                handleGoogleSignOut(); // Sign out on error
+                            }
+                        }
+                    },
+                });
+                setTokenClient(client);
+            }
+        };
+        // Wait for GSI script to load
+        if ('google' in window) {
+            initializeGsi();
+        } else {
+            const gsiScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
+            gsiScript?.addEventListener('load', initializeGsi);
+        }
+    }, []);
 
     const handleThemeToggle = () => {
         setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
@@ -1540,6 +1625,93 @@ const App: React.FC = () => {
         input.click();
     }, [setEntries, setSelectedCurrency, setIncomeCategories, setExpenseCategories, setRecurringEntries, setBudgetGoals]);
 
+    const handleGoogleSignIn = () => {
+        if (tokenClient) {
+            tokenClient.requestAccessToken();
+        } else {
+            alert("Google Sign-In is not ready yet. Please try again in a moment.");
+        }
+    };
+
+    const handleGoogleSignOut = () => {
+        const token = localStorage.getItem('google_token');
+        if (token) {
+            window.google.accounts.oauth2.revoke(token, () => {});
+        }
+        localStorage.removeItem('google_token');
+        setIsSignedIn(false);
+        setUserInfo(null);
+    };
+    
+    const handleBackupToDrive = async () => {
+        const token = localStorage.getItem('google_token');
+        if (!token) {
+            alert("You are not signed in.");
+            return;
+        }
+
+        const dataToExport = {
+            entries,
+            selectedCurrency,
+            incomeCategories,
+            expenseCategories,
+            recurringEntries,
+            budgetGoals,
+        };
+        const fileContent = JSON.stringify(dataToExport, null, 2);
+        const fileName = `income-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        const FOLDER_NAME = "IncomeExpenseApp_Backups";
+    
+        try {
+            // 1. Find or create the folder
+            const folderQuery = `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`;
+            const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(folderQuery)}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const searchData = await searchRes.json();
+            
+            let folderId;
+            if (searchData.files && searchData.files.length > 0) {
+                folderId = searchData.files[0].id;
+            } else {
+                const folderMetadata = { name: FOLDER_NAME, mimeType: 'application/vnd.google-apps.folder' };
+                const createFolderRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(folderMetadata)
+                });
+                const createFolderData = await createFolderRes.json();
+                folderId = createFolderData.id;
+            }
+
+            if (!folderId) throw new Error("Could not find or create backup folder.");
+
+            // 2. Upload the file
+            const fileMetadata = { name: fileName, parents: [folderId] };
+            const form = new FormData();
+            form.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
+            form.append('file', new Blob([fileContent], { type: 'application/json' }));
+            
+            const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: form
+            });
+
+            if (uploadRes.ok) {
+                alert(`Successfully backed up data to Google Drive in folder "${FOLDER_NAME}"!`);
+            } else {
+                const errorData = await uploadRes.json();
+                throw new Error(errorData.error.message || "File upload failed.");
+            }
+
+        } catch (error) {
+            console.error("Backup to Drive failed:", error);
+            alert(`An error occurred during backup: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+    };
+
+
     const renderPage = () => {
         switch (currentPage) {
             case 'planner':
@@ -1631,6 +1803,11 @@ const App: React.FC = () => {
                 currencySymbol={currencySymbol}
                 onExportData={handleExportData}
                 onImportData={handleImportData}
+                isSignedIn={isSignedIn}
+                userInfo={userInfo}
+                onGoogleSignIn={handleGoogleSignIn}
+                onGoogleSignOut={handleGoogleSignOut}
+                onBackupToDrive={handleBackupToDrive}
             />
 
             <EditEntryModal
