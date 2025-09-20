@@ -575,7 +575,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                             <div className="p-4 bg-yellow-50 dark:bg-yellow-900/40 rounded-lg border border-yellow-200 dark:border-yellow-800/60">
                                 <h4 className="font-bold text-yellow-800 dark:text-yellow-200">Feature Not Configured</h4>
                                 <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                                    The Google Sync feature requires setup by an administrator. API Key and/or Client ID are missing.
+                                    The Google Sync feature requires setup by an administrator. The Google Client ID is missing.
                                 </p>
                             </div>
                         )}
@@ -1382,16 +1382,17 @@ const App: React.FC = () => {
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
 
-    // --- Google State ---
-    // --- IMPORTANT CONFIGURATION ---
-    // For the Google Sync feature to work, you must replace the placeholder API_KEY below.
-    // In a real production app, these values should be stored in environment variables
-    // and injected during the build process, not hardcoded.
-    // Get your credentials from the Google Cloud Console: https://console.cloud.google.com/
+    // --- Google State & Configuration ---
+    // The Client ID is required for Google Sign-In. It is safe to be public.
     const googleClientId = "368572319708-ilhc8di33bkvnt01rg88kfmfce38bifr.apps.googleusercontent.com";
-    const apiKey = "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"; // <-- REPLACE THIS VALUE
 
-    const isGoogleSyncConfigured = !!(googleClientId && apiKey && apiKey !== "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");
+    // --- ACTION REQUIRED ---
+    // For Google Sheets sync to work, you must replace the placeholder value below with your actual Google API Key.
+    // Get an API Key from the Google Cloud Console. See the administrator guide for instructions.
+    // The sign-in button will work without this, but data syncing will fail until the key is provided.
+    const GOOGLE_API_KEY = "AIzaSyCuUSQNbKUX_2OYeuaZLLJgG2de8prd54c";
+
+    const isGoogleSyncConfigured = !!googleClientId;
     const [tokenClient, setTokenClient] = React.useState<any>(null);
     const [userProfile, setUserProfile] = React.useState<{ name: string; email: string; picture: string; } | null>(null);
     const [accessToken, setAccessToken] = React.useState<string | null>(null);
@@ -1451,10 +1452,10 @@ const App: React.FC = () => {
 
     React.useEffect(() => {
         const initializeGapi = async () => {
-            if (window.gapi && accessToken && apiKey) {
+            if (window.gapi && accessToken && GOOGLE_API_KEY !== "PASTE_YOUR_GOOGLE_API_KEY_HERE") {
                  await new Promise((resolve) => window.gapi.load('client', resolve));
                  await window.gapi.client.init({
-                    apiKey: apiKey,
+                    apiKey: GOOGLE_API_KEY,
                     discoveryDocs: [
                         "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
                         "https://www.googleapis.com/discovery/v1/apis/sheets/v4/rest"
@@ -1464,7 +1465,7 @@ const App: React.FC = () => {
             }
         };
         initializeGapi();
-    }, [accessToken, apiKey]);
+    }, [accessToken, GOOGLE_API_KEY]);
 
     const handleGoogleSignIn = React.useCallback(() => {
         if (tokenClient) tokenClient.requestAccessToken();
@@ -1472,7 +1473,11 @@ const App: React.FC = () => {
 
     // --- Background Sync Logic ---
     const syncData = React.useCallback(async () => {
-        if (!accessToken || !window.gapi?.client?.sheets || !isGoogleSyncConfigured) {
+        if (!accessToken || !window.gapi?.client?.sheets || !isGoogleSyncConfigured || GOOGLE_API_KEY === "PASTE_YOUR_GOOGLE_API_KEY_HERE") {
+             if (GOOGLE_API_KEY === "PASTE_YOUR_GOOGLE_API_KEY_HERE" && accessToken) {
+                console.error("Google Sync stopped: API Key is missing.");
+                setSyncStatus('error');
+            }
             return;
         }
 
@@ -1537,7 +1542,7 @@ const App: React.FC = () => {
             if (error.result?.error?.code === 401) handleGoogleSignOut();
             setSyncStatus('error');
         }
-    }, [accessToken, entries, spreadsheetId, handleGoogleSignOut, isGoogleSyncConfigured]);
+    }, [accessToken, entries, spreadsheetId, handleGoogleSignOut, isGoogleSyncConfigured, GOOGLE_API_KEY]);
 
     React.useEffect(() => {
         const handler = setTimeout(() => {
