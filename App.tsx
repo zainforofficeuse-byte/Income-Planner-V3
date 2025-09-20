@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Entry, CurrencySymbols, Category, RecurringEntry, BudgetGoal } from './types';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, LineChart, Line } from 'recharts';
 
 // Assumes GOOGLE_API_KEY and GOOGLE_CLIENT_ID are available in the environment
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
@@ -529,13 +529,16 @@ interface SettingsModalProps {
     onSignIn: () => void;
     onSignOut: () => void;
     onBackup: () => void;
+    onExportData: () => void;
+    onImportData: () => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
     isOpen, onClose, onSelectCurrency, selectedCurrency, 
     incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
     recurringEntries, setRecurringEntries, budgetGoals, setBudgetGoals, currencySymbol,
-    isSignedIn, syncStatus, userInfo, spreadsheetId, onSignIn, onSignOut, onBackup
+    isSignedIn, syncStatus, userInfo, spreadsheetId, onSignIn, onSignOut, onBackup,
+    onExportData, onImportData
 }) => {
     if (!isOpen) return null;
     const [activeTab, setActiveTab] = useState<'currency' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync'>('currency');
@@ -575,6 +578,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                 <button onClick={onSignOut} className="w-full px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 font-semibold rounded-lg text-sm hover:bg-red-200 dark:hover:bg-red-800 transition">Disconnect</button>
                             </div>
                         )}
+                        <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                             <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Local Data Management</h3>
+                             <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Save your data to a file on your device, or load data from a previously saved file. This does not use Google Sync.</p>
+                             <div className="space-y-3">
+                                <button onClick={onExportData} className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V5a1 1 0 112 0v5.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                    <span>Export Data to File</span>
+                                </button>
+                                <button onClick={onImportData} className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 9.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 7.414V13a1 1 0 11-2 0V7.414L6.293 9.707z" clipRule="evenodd" /></svg>
+                                    <span>Import Data from File</span>
+                                </button>
+                             </div>
+                        </div>
                     </div>
                 );
             case 'income':
@@ -993,7 +1010,7 @@ interface DashboardPageProps {
 }
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }) => {
-    const { totalIncome, totalExpense, incomeByCategory, expenseByCategory } = useMemo(() => {
+    const { totalIncome, totalExpense, allTimeIncomeByCategory, allTimeExpenseByCategory } = useMemo(() => {
         const incomeEntries = entries.filter(e => e.isIncome);
         const expenseEntries = entries.filter(e => !e.isIncome);
 
@@ -1006,10 +1023,10 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
                 return acc;
             }, {} as Record<string, number>);
 
-        const incomeByCategory = Object.entries(groupByCategory(incomeEntries)).sort((a, b) => b[1] - a[1]);
-        const expenseByCategory = Object.entries(groupByCategory(expenseEntries)).sort((a, b) => b[1] - a[1]);
+        const allTimeIncomeByCategory = Object.entries(groupByCategory(incomeEntries)).sort((a, b) => b[1] - a[1]);
+        const allTimeExpenseByCategory = Object.entries(groupByCategory(expenseEntries)).sort((a, b) => b[1] - a[1]);
         
-        return { totalIncome, totalExpense, incomeByCategory, expenseByCategory };
+        return { totalIncome, totalExpense, allTimeIncomeByCategory, allTimeExpenseByCategory };
     }, [entries]);
 
     const { dailyIncome, dailyExpense } = useMemo(() => {
@@ -1037,6 +1054,52 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
 
             data.push({ name: dayName, income, expense });
         }
+        return data;
+    }, [entries]);
+
+    const { monthlyExpenseByCategory, totalMonthlyExpense } = useMemo(() => {
+        const currentMonthStr = new Date().toISOString().slice(0, 7); // YYYY-MM
+        const monthlyExpenses = entries.filter(e => !e.isIncome && e.date.slice(0, 7) === currentMonthStr);
+
+        const totalMonthlyExpense = monthlyExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+        const groupByCategory = (entryList: Entry[]) => 
+            entryList.reduce((acc, entry) => {
+                acc[entry.description] = (acc[entry.description] || 0) + entry.amount;
+                return acc;
+            }, {} as Record<string, number>);
+
+        const monthlyExpenseByCategory = Object.entries(groupByCategory(monthlyExpenses)).sort((a, b) => b[1] - a[1]);
+        
+        return { monthlyExpenseByCategory, totalMonthlyExpense };
+    }, [entries]);
+
+    const yearlyTrendData = useMemo(() => {
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonthIndex = today.getMonth(); // 0-11
+
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        
+        const data = monthNames.slice(0, currentMonthIndex + 1).map(name => ({
+            month: name,
+            income: 0,
+            expense: 0,
+        }));
+
+        const yearEntries = entries.filter(e => new Date(e.date).getFullYear() === currentYear);
+
+        for (const entry of yearEntries) {
+            const monthIndex = new Date(entry.date).getMonth();
+            if (monthIndex <= currentMonthIndex) {
+                if (entry.isIncome) {
+                    data[monthIndex].income += entry.amount;
+                } else {
+                    data[monthIndex].expense += entry.amount;
+                }
+            }
+        }
+        
         return data;
     }, [entries]);
 
@@ -1081,6 +1144,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
                                         backgroundColor: 'rgba(255, 255, 255, 0.8)',
                                         border: '1px solid #e5e7eb',
                                         borderRadius: '0.75rem',
+                                        backdropFilter: 'blur(4px)',
                                     }}
                                     cursor={{ fill: 'rgba(209, 213, 219, 0.3)'}}
                                 />
@@ -1094,9 +1158,39 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
                     <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No activity in the last 7 days.</p>
                 )}
             </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
+                <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Year-to-Date Trend</h3>
+                {yearlyTrendData.some(d => d.income > 0 || d.expense > 0) ? (
+                    <div style={{ width: '100%', height: 250 }}>
+                        <ResponsiveContainer>
+                            <LineChart data={yearlyTrendData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                                <XAxis dataKey="month" tick={{ fill: 'currentColor', fontSize: 12 }} />
+                                <YAxis tick={{ fill: 'currentColor', fontSize: 12 }} />
+                                <Tooltip
+                                    contentStyle={{
+                                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '0.75rem',
+                                        backdropFilter: 'blur(4px)',
+                                    }}
+                                    cursor={{ fill: 'rgba(209, 213, 219, 0.3)' }}
+                                />
+                                <Legend wrapperStyle={{fontSize: "12px"}}/>
+                                <Line type="monotone" dataKey="income" name="Income" stroke="#22c55e" strokeWidth={2} activeDot={{ r: 6 }} />
+                                <Line type="monotone" dataKey="expense" name="Expense" stroke="#ef4444" strokeWidth={2} activeDot={{ r: 6 }} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No data for this year yet.</p>
+                )}
+            </div>
             
-            <BreakdownDisplay title="Income by Category" data={incomeByCategory} total={totalIncome} isIncome={true} currencySymbol={currencySymbol} />
-            <BreakdownDisplay title="Expense by Category" data={expenseByCategory} total={totalExpense} isIncome={false} currencySymbol={currencySymbol} />
+            <BreakdownDisplay title="This Month's Spending" data={monthlyExpenseByCategory} total={totalMonthlyExpense} isIncome={false} currencySymbol={currencySymbol} />
+            <BreakdownDisplay title="All-Time Income" data={allTimeIncomeByCategory} total={totalIncome} isIncome={true} currencySymbol={currencySymbol} />
+            <BreakdownDisplay title="All-Time Expense" data={allTimeExpenseByCategory} total={totalExpense} isIncome={false} currencySymbol={currencySymbol} />
         </div>
     );
 };
@@ -1722,6 +1816,67 @@ const App: React.FC = () => {
         setCloudEntries(null);
     };
 
+    const handleExportData = useCallback(() => {
+        try {
+            const dataToExport = {
+                entries,
+                selectedCurrency,
+                incomeCategories,
+                expenseCategories,
+                recurringEntries,
+                budgetGoals,
+            };
+            const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(dataToExport, null, 2))}`;
+            const link = document.createElement("a");
+            link.href = jsonString;
+            link.download = `income-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+        } catch (error) {
+            console.error("Failed to export data", error);
+            alert("An error occurred while exporting your data.");
+        }
+    }, [entries, selectedCurrency, incomeCategories, expenseCategories, recurringEntries, budgetGoals]);
+
+    const handleImportData = useCallback(() => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (event) => {
+            const file = (event.target as HTMLInputElement).files?.[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target?.result;
+                if (typeof text !== 'string') {
+                    alert('Could not read file content.');
+                    return;
+                }
+                try {
+                    const data = JSON.parse(text);
+                    if (!data.entries || !data.selectedCurrency || !data.incomeCategories || !data.expenseCategories) {
+                        throw new Error("Invalid or corrupted data file.");
+                    }
+                    if (window.confirm("Are you sure you want to import this data? This will overwrite all current local data.")) {
+                        setEntries(data.entries || []);
+                        setSelectedCurrency(data.selectedCurrency || 'USD');
+                        setIncomeCategories(data.incomeCategories || defaultIncomeCategories);
+                        setExpenseCategories(data.expenseCategories || defaultExpenseCategories);
+                        setRecurringEntries(data.recurringEntries || []);
+                        setBudgetGoals(data.budgetGoals || []);
+                        alert("Data imported successfully!");
+                    }
+                } catch (error) {
+                    console.error("Failed to import data", error);
+                    alert(`An error occurred while importing data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                }
+            };
+            reader.onerror = () => alert('Error reading the file.');
+            reader.readAsText(file);
+        };
+        input.click();
+    }, [setEntries, setSelectedCurrency, setIncomeCategories, setExpenseCategories, setRecurringEntries, setBudgetGoals]);
+
     const renderPage = () => {
         switch (currentPage) {
             case 'planner':
@@ -1819,6 +1974,8 @@ const App: React.FC = () => {
                 onSignIn={handleSignIn}
                 onSignOut={handleSignOut}
                 onBackup={handleCreateBackup}
+                onExportData={handleExportData}
+                onImportData={handleImportData}
             />
 
             <EditEntryModal
