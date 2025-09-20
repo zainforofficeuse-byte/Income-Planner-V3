@@ -498,9 +498,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!isOpen) return null;
     // FIX: Replaced `aistudiocdn` with `React`
     const [activeTab, setActiveTab] = React.useState<'currency' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync'>('currency');
-    
-    // Check if Google Client ID is provided
-    const isGoogleReady = !!process.env.GOOGLE_CLIENT_ID;
 
     const renderContent = () => {
         switch (activeTab) {
@@ -508,7 +505,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 return (
                     <div>
                         <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Google Sync & Backup</h3>
-                        {isGoogleReady ? (
+                        {
                              isSignedIn && userInfo ? (
                                 <div className="text-center">
                                     <img src={userInfo.picture} alt="profile" className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-gray-300 dark:border-gray-600" />
@@ -541,12 +538,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                     </button>
                                 </div>
                             )
-                        ) : (
-                             <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-900/50 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                                <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-200">Feature Not Configured</p>
-                                <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">Google Sync requires setup by the administrator. The feature is currently disabled.</p>
-                            </div>
-                        )}
+                        }
 
                         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                              <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Local Data Management</h3>
