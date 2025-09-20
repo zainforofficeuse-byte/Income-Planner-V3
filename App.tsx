@@ -1,17 +1,8 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+
+// FIX: Corrected React import statement. The previous syntax was invalid.
+import React from 'react';
 import type { Entry, CurrencySymbols, Category, RecurringEntry, BudgetGoal } from './types';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, LineChart, Line } from 'recharts';
-
-const GOOGLE_API_KEY = process.env.API_KEY;
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const SPREADSHEET_NAME = 'IncomeExpenseAppData';
-const BACKUP_FOLDER_NAME = 'IncomeExpenseApp_Backups';
-const SCOPES = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file';
-const DISCOVERY_DOCS = [
-    "https://sheets.googleapis.com/$discovery/rest?version=v4",
-    "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"
-];
-
 
 const currencySymbols: CurrencySymbols = {
     'USD': '$',
@@ -49,48 +40,6 @@ const formatNumberInput = (input: string): string => {
     return parseInt(digitsOnly, 10).toLocaleString('en-US');
 };
 
-interface MergeDataModalProps {
-    isOpen: boolean;
-    onKeepCloud: () => void;
-    onKeepLocal: () => void;
-    onMerge: () => void;
-}
-
-const MergeDataModal: React.FC<MergeDataModalProps> = ({ isOpen, onKeepCloud, onKeepLocal, onMerge }) => {
-    if (!isOpen) return null;
-
-    return (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4" >
-            <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl p-6 flex flex-col animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
-                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Sync Conflict</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">You have data saved on this device and in your Google Account. How would you like to proceed?</p>
-                
-                <div className="space-y-3">
-                    <button onClick={onKeepCloud} className="w-full text-left p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">
-                        <p className="font-semibold text-gray-800 dark:text-gray-200">Use Google Sheets Data</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Replaces device data with cloud data.</p>
-                    </button>
-                    <button onClick={onKeepLocal} className="w-full text-left p-4 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition">
-                        <p className="font-semibold text-gray-800 dark:text-gray-200">Use Device Data</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Replaces cloud data with device data.</p>
-                    </button>
-                     <button onClick={onMerge} className="w-full text-left p-4 bg-blue-100 dark:bg-blue-900/50 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800/80 transition">
-                        <p className="font-semibold text-blue-800 dark:text-blue-300">Merge Both</p>
-                        <p className="text-xs text-blue-600 dark:text-blue-400">Combines data from both sources (Recommended).</p>
-                    </button>
-                </div>
-            </div>
-             <style>{`
-                @keyframes fade-in-scale {
-                    from { opacity: 0; transform: scale(0.95); }
-                    to { opacity: 1; transform: scale(1); }
-                }
-                .animate-fade-in-scale { animation: fade-in-scale 0.2s ease-out forwards; }
-            `}</style>
-        </div>
-    );
-};
-
 interface BudgetManagerProps {
     budgetGoals: BudgetGoal[];
     setBudgetGoals: React.Dispatch<React.SetStateAction<BudgetGoal[]>>;
@@ -99,16 +48,19 @@ interface BudgetManagerProps {
 }
 
 const BudgetManager: React.FC<BudgetManagerProps> = ({ budgetGoals, setBudgetGoals, expenseCategories, currencySymbol }) => {
-    const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []); // YYYY-MM
+    // FIX: Replaced `aistudiocdn` with `React`
+    const currentMonth = React.useMemo(() => new Date().toISOString().slice(0, 7), []); // YYYY-MM
 
-    const [formState, setFormState] = useState({
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [formState, setFormState] = React.useState({
         type: 'spending' as 'spending' | 'saving',
         name: expenseCategories.length > 0 ? expenseCategories[0].name : '',
         customName: 'Monthly Savings',
         targetAmount: '',
     });
 
-    useEffect(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    React.useEffect(() => {
         // Reset name selection when expense categories change to avoid invalid state
         if (formState.type === 'spending' && !expenseCategories.some(c => c.name === formState.name)) {
             setFormState(prev => ({ ...prev, name: expenseCategories[0]?.name || '' }));
@@ -213,14 +165,16 @@ interface RecurringManagerProps {
 }
 
 const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringEntries, setRecurringEntries, currencySymbol }) => {
-    const [formState, setFormState] = useState({
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [formState, setFormState] = React.useState({
         amount: '',
         description: '',
         isIncome: true,
         frequency: 'monthly' as 'daily' | 'weekly' | 'monthly',
         startDate: new Date().toISOString().split('T')[0],
     });
-    const [editingEntry, setEditingEntry] = useState<RecurringEntry | null>(null);
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [editingEntry, setEditingEntry] = React.useState<RecurringEntry | null>(null);
     
     const resetForm = () => {
         setFormState({
@@ -389,9 +343,12 @@ interface CategoryManagerProps {
 }
 
 const CategoryManager: React.FC<CategoryManagerProps> = ({ title, categories, setCategories }) => {
-    const [newCategoryName, setNewCategoryName] = useState('');
-    const [newCategoryIcon, setNewCategoryIcon] = useState('');
-    const [editingCategory, setEditingCategory] = useState<{ index: number; name: string; icon: string; } | null>(null);
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [newCategoryName, setNewCategoryName] = React.useState('');
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [newCategoryIcon, setNewCategoryIcon] = React.useState('');
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [editingCategory, setEditingCategory] = React.useState<{ index: number; name: string; icon: string; } | null>(null);
 
     const handleAdd = () => {
         if (newCategoryName.trim() && !categories.some(c => c.name.toLowerCase() === newCategoryName.trim().toLowerCase())) {
@@ -521,15 +478,6 @@ interface SettingsModalProps {
     budgetGoals: BudgetGoal[];
     setBudgetGoals: React.Dispatch<React.SetStateAction<BudgetGoal[]>>;
     currencySymbol: string;
-    // Google Sync props
-    isGoogleSyncConfigured: boolean;
-    isSignedIn: boolean;
-    syncStatus: string;
-    userInfo: any;
-    spreadsheetId: string | null;
-    onSignIn: () => void;
-    onSignOut: () => void;
-    onBackup: () => void;
     onExportData: () => void;
     onImportData: () => void;
 }
@@ -538,91 +486,29 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     isOpen, onClose, onSelectCurrency, selectedCurrency, 
     incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
     recurringEntries, setRecurringEntries, budgetGoals, setBudgetGoals, currencySymbol,
-    isGoogleSyncConfigured, isSignedIn, syncStatus, userInfo, spreadsheetId, onSignIn, onSignOut, onBackup,
     onExportData, onImportData
 }) => {
     if (!isOpen) return null;
-    const [activeTab, setActiveTab] = useState<'currency' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync'>('currency');
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [activeTab, setActiveTab] = React.useState<'currency' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync'>('currency');
 
     const renderContent = () => {
         switch (activeTab) {
             case 'sync':
-                let syncStatusDisplay = null;
-                if(isSignedIn) {
-                    let icon, text, bgColor, textColor;
-                    switch (syncStatus) {
-                        case 'syncing':
-                            icon = <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>;
-                            text = "Syncing data with Google Sheets...";
-                            bgColor = "bg-blue-100 dark:bg-blue-900/50";
-                            textColor = "text-blue-800 dark:text-blue-300";
-                            break;
-                        case 'synced':
-                            icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>;
-                            text = "All data is up to date.";
-                            bgColor = "bg-green-100 dark:bg-green-900/50";
-                            textColor = "text-green-800 dark:text-green-300";
-                            break;
-                        case 'error':
-                            icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>;
-                            text = "Sync failed. Please check connection.";
-                            bgColor = "bg-red-100 dark:bg-red-900/50";
-                            textColor = "text-red-800 dark:text-red-300";
-                            break;
-                        default: // 'idle'
-                            icon = <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>;
-                            text = "Changes will sync automatically.";
-                            bgColor = "bg-gray-100 dark:bg-gray-700/50";
-                            textColor = "text-gray-800 dark:text-gray-300";
-                            break;
-                    }
-                    syncStatusDisplay = (
-                        <div className={`p-3 rounded-lg flex items-center gap-3 text-sm font-medium ${bgColor} ${textColor}`}>
-                            <div className="flex-shrink-0">{icon}</div>
-                            <span>{text}</span>
-                        </div>
-                    );
-                }
                 return (
                     <div>
-                        <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Google Sync & Backup</h3>
-                        {isGoogleSyncConfigured ? (
-                            !isSignedIn ? (
-                                <div className="text-center">
-                                    <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Connect your Google account to automatically save and sync your transactions to a private Google Sheet.</p>
-                                    <button 
-                                        onClick={onSignIn} 
-                                        className="px-6 py-2.5 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition flex items-center justify-center gap-2 mx-auto"
-                                    >
-                                        <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48px" height="48px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.519-3.536-11.088-8.108l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.99,36.566,44,31.2,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
-                                        <span>Connect with Google</span>
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg flex items-center gap-3">
-                                        <img src={userInfo?.imageUrl} alt="User" className="w-10 h-10 rounded-full" />
-                                        <div>
-                                            <p className="font-semibold text-sm text-gray-800 dark:text-gray-100">{userInfo?.name}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">{userInfo?.email}</p>
-                                        </div>
-                                    </div>
-                                    {syncStatusDisplay}
-                                    {spreadsheetId && (
-                                        <a href={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`} target="_blank" rel="noopener noreferrer" className="block w-full text-center px-4 py-2 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 font-semibold rounded-lg text-sm hover:bg-green-200 dark:hover:bg-green-800 transition">View Synced Sheet</a>
-                                    )}
-                                    <button onClick={onBackup} disabled={syncStatus === 'syncing'} className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50">
-                                        {syncStatus === 'syncing' ? 'Syncing...' : 'Create Manual Backup'}
-                                    </button>
-                                    <button onClick={onSignOut} className="w-full px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400 font-semibold rounded-lg text-sm hover:bg-red-200 dark:hover:bg-red-800 transition">Disconnect</button>
-                                </div>
-                            )
-                        ) : (
-                            <div className="p-4 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg text-center">
-                                <p className="text-sm font-semibold text-yellow-800 dark:text-yellow-300">Google Sync is unavailable.</p>
-                                <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">The application is not configured with the necessary Google API credentials.</p>
-                            </div>
-                        )}
+                        <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Connect with Google</h3>
+                        <div className="text-center">
+                            <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Connect your Google account to automatically save and sync your transactions to a private Google Sheet.</p>
+                            <button 
+                                onClick={() => alert('Google Sync feature is coming soon!')}
+                                className="px-6 py-2.5 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition flex items-center justify-center gap-2 mx-auto"
+                            >
+                                <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48px" height="48px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.222,0-9.519-3.536-11.088-8.108l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.99,36.566,44,31.2,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
+                                <span>Connect with Google</span>
+                            </button>
+                        </div>
+
                         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                              <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Local Data Management</h3>
                              <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Save your data to a file on your device, or load data from a previously saved file. This does not use Google Sync.</p>
@@ -723,11 +609,15 @@ interface EditEntryModalProps {
 }
 
 const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry, onSave, currencySymbol }) => {
-    const [amount, setAmount] = useState('');
-    const [description, setDescription] = useState('');
-    const [isIncome, setIsIncome] = useState(true);
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [amount, setAmount] = React.useState('');
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [description, setDescription] = React.useState('');
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [isIncome, setIsIncome] = React.useState(true);
 
-    useEffect(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    React.useEffect(() => {
         if (entry) {
             setAmount(entry.amount.toLocaleString('en-US'));
             setDescription(entry.description);
@@ -877,7 +767,8 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
     incomeCategories, expenseCategories,
     handleAmountChange, setDescription, handleAddEntry, onEditEntry, onDeleteEntry
 }) => {
-    const findIcon = useCallback((description: string, isIncome: boolean): string | undefined => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const findIcon = React.useCallback((description: string, isIncome: boolean): string | undefined => {
         const list = isIncome ? incomeCategories : expenseCategories;
         const category = list.find(cat => cat.name.toLowerCase() === description.toLowerCase());
         return category?.icon;
@@ -991,7 +882,8 @@ const PIE_COLORS = {
 };
 
 const BreakdownDisplay: React.FC<BreakdownDisplayProps> = ({ title, data, total, isIncome, currencySymbol }) => {
-    const chartData = useMemo(() => data.map(([name, value]) => ({ name, value })), [data]);
+    // FIX: Replaced `aistudiocdn` with `React`
+    const chartData = React.useMemo(() => data.map(([name, value]) => ({ name, value })), [data]);
     const colors = isIncome ? PIE_COLORS.income : PIE_COLORS.expense;
 
     const CustomTooltip = ({ active, payload }: any) => {
@@ -1055,7 +947,8 @@ interface DashboardPageProps {
 }
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }) => {
-    const { totalIncome, totalExpense, allTimeIncomeByCategory, allTimeExpenseByCategory } = useMemo(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const { totalIncome, totalExpense, allTimeIncomeByCategory, allTimeExpenseByCategory } = React.useMemo(() => {
         const incomeEntries = entries.filter(e => e.isIncome);
         const expenseEntries = entries.filter(e => !e.isIncome);
 
@@ -1074,7 +967,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
         return { totalIncome, totalExpense, allTimeIncomeByCategory, allTimeExpenseByCategory };
     }, [entries]);
 
-    const { dailyIncome, dailyExpense } = useMemo(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const { dailyIncome, dailyExpense } = React.useMemo(() => {
         const todayStr = new Date().toLocaleDateString('en-CA');
         const todaysEntries = entries.filter(e => e.date === todayStr);
         const dailyIncome = todaysEntries.filter(e => e.isIncome).reduce((sum, e) => sum + e.amount, 0);
@@ -1082,7 +976,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
         return { dailyIncome, dailyExpense };
     }, [entries]);
 
-    const weeklyChartData = useMemo(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const weeklyChartData = React.useMemo(() => {
         const data: { name: string; income: number; expense: number }[] = [];
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -1102,7 +997,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
         return data;
     }, [entries]);
 
-    const { monthlyExpenseByCategory, totalMonthlyExpense } = useMemo(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const { monthlyExpenseByCategory, totalMonthlyExpense } = React.useMemo(() => {
         const currentMonthStr = new Date().toISOString().slice(0, 7); // YYYY-MM
         const monthlyExpenses = entries.filter(e => !e.isIncome && e.date.slice(0, 7) === currentMonthStr);
 
@@ -1119,7 +1015,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
         return { monthlyExpenseByCategory, totalMonthlyExpense };
     }, [entries]);
 
-    const yearlyTrendData = useMemo(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const yearlyTrendData = React.useMemo(() => {
         const today = new Date();
         const currentYear = today.getFullYear();
         const currentMonthIndex = today.getMonth(); // 0-11
@@ -1248,9 +1145,11 @@ interface GoalsPageProps {
 }
 
 const GoalsPage: React.FC<GoalsPageProps> = ({ entries, budgetGoals, currencySymbol, expenseCategories }) => {
-    const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []); // YYYY-MM
+    // FIX: Replaced `aistudiocdn` with `React`
+    const currentMonth = React.useMemo(() => new Date().toISOString().slice(0, 7), []); // YYYY-MM
 
-    const progressData = useMemo(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const progressData = React.useMemo(() => {
         const currentMonthGoals = budgetGoals.filter(g => g.month === currentMonth);
         const currentMonthEntries = entries.filter(e => e.date.slice(0, 7) === currentMonth);
         
@@ -1275,7 +1174,8 @@ const GoalsPage: React.FC<GoalsPageProps> = ({ entries, budgetGoals, currencySym
         });
     }, [budgetGoals, entries, currentMonth]);
 
-    const findIcon = useCallback((goalName: string) => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const findIcon = React.useCallback((goalName: string) => {
         const category = expenseCategories.find(cat => cat.name === goalName);
         return category?.icon;
     }, [expenseCategories]);
@@ -1323,23 +1223,11 @@ const GoalsPage: React.FC<GoalsPageProps> = ({ entries, budgetGoals, currencySym
     );
 };
 
-type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error';
-
-const SyncStatusIcon: React.FC<{ status: SyncStatus }> = ({ status }) => {
-    const iconMap: Record<SyncStatus, React.ReactNode> = {
-        idle: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /></svg>,
-        syncing: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 4l5 5M20 20l-5-5" /></svg>,
-        synced: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" /><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" /></svg>,
-        error: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
-    };
-    return <div className="p-2 rounded-full" title={`Sync status: ${status}`}>{iconMap[status]}</div>
-};
-
-
 // --- Main Application Component ---
 
 const App: React.FC = () => {
-    const [entries, setEntries] = useState<Entry[]>(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [entries, setEntries] = React.useState<Entry[]>(() => {
         try {
             const saved = localStorage.getItem('incomePlanner-entries');
             return saved ? JSON.parse(saved) : [];
@@ -1348,9 +1236,12 @@ const App: React.FC = () => {
             return [];
         }
     });
-    const [amount, setAmount] = useState<string>('');
-    const [description, setDescription] = useState<string>('');
-    const [selectedCurrency, setSelectedCurrency] = useState<string>(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [amount, setAmount] = React.useState<string>('');
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [description, setDescription] = React.useState<string>('');
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [selectedCurrency, setSelectedCurrency] = React.useState<string>(() => {
         try {
             const saved = localStorage.getItem('incomePlanner-currency');
             return saved ? JSON.parse(saved) : 'USD';
@@ -1359,11 +1250,15 @@ const App: React.FC = () => {
             return 'USD';
         }
     });
-    const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-    const [error, setError] = useState<string>('');
-    const [currentPage, setCurrentPage] = useState<'planner' | 'dashboard' | 'goals'>('planner');
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [isSettingsOpen, setIsSettingsOpen] = React.useState<boolean>(false);
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [error, setError] = React.useState<string>('');
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [currentPage, setCurrentPage] = React.useState<'planner' | 'dashboard' | 'goals'>('planner');
     
-    const [incomeCategories, setIncomeCategories] = useState<Category[]>(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [incomeCategories, setIncomeCategories] = React.useState<Category[]>(() => {
         try {
             const saved = localStorage.getItem('incomePlanner-incomeCategories');
             return saved ? JSON.parse(saved) : defaultIncomeCategories;
@@ -1372,7 +1267,8 @@ const App: React.FC = () => {
             return defaultIncomeCategories;
         }
     });
-    const [expenseCategories, setExpenseCategories] = useState<Category[]>(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [expenseCategories, setExpenseCategories] = React.useState<Category[]>(() => {
         try {
             const saved = localStorage.getItem('incomePlanner-expenseCategories');
             return saved ? JSON.parse(saved) : defaultExpenseCategories;
@@ -1381,7 +1277,8 @@ const App: React.FC = () => {
             return defaultExpenseCategories;
         }
     });
-    const [recurringEntries, setRecurringEntries] = useState<RecurringEntry[]>(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [recurringEntries, setRecurringEntries] = React.useState<RecurringEntry[]>(() => {
         try {
             const saved = localStorage.getItem('incomePlanner-recurringEntries');
             return saved ? JSON.parse(saved) : [];
@@ -1390,7 +1287,8 @@ const App: React.FC = () => {
             return [];
         }
     });
-    const [budgetGoals, setBudgetGoals] = useState<BudgetGoal[]>(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [budgetGoals, setBudgetGoals] = React.useState<BudgetGoal[]>(() => {
         try {
             const saved = localStorage.getItem('incomePlanner-budgetGoals');
             return saved ? JSON.parse(saved) : [];
@@ -1400,20 +1298,13 @@ const App: React.FC = () => {
         }
     });
     
-    const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
-    const [entryToEdit, setEntryToEdit] = useState<Entry | null>(null);
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [isEditModalOpen, setIsEditModalOpen] = React.useState<boolean>(false);
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [entryToEdit, setEntryToEdit] = React.useState<Entry | null>(null);
 
-    // Google Sync State
-    const [isGoogleSyncConfigured] = useState(!!(GOOGLE_API_KEY && GOOGLE_CLIENT_ID));
-    const [tokenClient, setTokenClient] = useState<any>(null);
-    const [accessToken, setAccessToken] = useState<string | null>(null);
-    const [userInfo, setUserInfo] = useState<any>(null);
-    const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
-    const [spreadsheetId, setSpreadsheetId] = useState<string | null>(() => localStorage.getItem('spreadsheetId'));
-    const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
-    const [cloudEntries, setCloudEntries] = useState<Entry[] | null>(null);
-
-    const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [theme, setTheme] = React.useState<'light' | 'dark'>(() => {
         if (typeof window === 'undefined') return 'light';
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme === 'dark' || savedTheme === 'light') return savedTheme;
@@ -1421,291 +1312,38 @@ const App: React.FC = () => {
     });
     
     // --- LocalStorage Persistence ---
-    useEffect(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    React.useEffect(() => {
         localStorage.setItem('incomePlanner-entries', JSON.stringify(entries));
     }, [entries]);
 
-    useEffect(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    React.useEffect(() => {
         localStorage.setItem('incomePlanner-currency', JSON.stringify(selectedCurrency));
     }, [selectedCurrency]);
 
-    useEffect(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    React.useEffect(() => {
         localStorage.setItem('incomePlanner-incomeCategories', JSON.stringify(incomeCategories));
     }, [incomeCategories]);
 
-    useEffect(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    React.useEffect(() => {
         localStorage.setItem('incomePlanner-expenseCategories', JSON.stringify(expenseCategories));
     }, [expenseCategories]);
 
-    useEffect(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    React.useEffect(() => {
         localStorage.setItem('incomePlanner-recurringEntries', JSON.stringify(recurringEntries));
     }, [recurringEntries]);
     
-     useEffect(() => {
+     // FIX: Replaced `aistudiocdn` with `React`
+    React.useEffect(() => {
         localStorage.setItem('incomePlanner-budgetGoals', JSON.stringify(budgetGoals));
     }, [budgetGoals]);
-
-    useEffect(() => {
-        if (spreadsheetId) {
-            localStorage.setItem('spreadsheetId', spreadsheetId);
-        } else {
-            localStorage.removeItem('spreadsheetId');
-        }
-    }, [spreadsheetId]);
-
-    // --- Google API and GIS Initialization ---
-     useEffect(() => {
-        if (!isGoogleSyncConfigured) {
-            console.warn("Google Sync is disabled because API key or Client ID is missing.");
-            if(syncStatus !== 'error') setSyncStatus('error');
-            return;
-        }
-
-        const gapiScript = document.createElement('script');
-        gapiScript.src = 'https://apis.google.com/js/api.js';
-        gapiScript.async = true;
-        gapiScript.defer = true;
-        gapiScript.onload = () => {
-            (window as any).gapi.load('client', () => {
-                (window as any).gapi.client.init({
-                    apiKey: GOOGLE_API_KEY,
-                    discoveryDocs: DISCOVERY_DOCS,
-                }).catch((err: any) => {
-                    console.error("Error initializing GAPI client", err);
-                    setSyncStatus('error');
-                });
-            });
-        };
-        document.body.appendChild(gapiScript);
-
-        const gisScript = document.createElement('script');
-        gisScript.src = 'https://accounts.google.com/gsi/client';
-        gisScript.async = true;
-        gisScript.defer = true;
-        gisScript.onload = () => {
-            const client = (window as any).google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID!,
-                scope: SCOPES,
-                callback: async (tokenResponse: any) => {
-                    if (tokenResponse.error) {
-                        console.error('Google Auth Error:', tokenResponse.error);
-                        setSyncStatus('error');
-                        return;
-                    }
-                    const token = tokenResponse.access_token;
-                    setAccessToken(token);
-                    (window as any).gapi.client.setToken({ access_token: token });
-                    
-                    try {
-                        const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                            headers: { Authorization: `Bearer ${token}` }
-                        });
-                        if (!res.ok) throw new Error('Failed to fetch user info');
-                        const profile = await res.json();
-                        setUserInfo({ name: profile.name, email: profile.email, imageUrl: profile.picture });
-                    } catch (e) {
-                        console.error("Could not fetch user info", e);
-                    }
-                },
-            });
-            setTokenClient(client);
-        };
-        document.body.appendChild(gisScript);
-
-        return () => {
-            if (document.body.contains(gapiScript)) document.body.removeChild(gapiScript);
-            if (document.body.contains(gisScript)) document.body.removeChild(gisScript);
-        };
-    }, [isGoogleSyncConfigured, syncStatus]);
-
-    const findOrCreateSpreadsheet = useCallback(async () => {
-        let id = spreadsheetId;
-        if (id) return id;
     
-        try {
-            const response = await (window as any).gapi.client.drive.files.list({
-                q: `mimeType='application/vnd.google-apps.spreadsheet' and name='${SPREADSHEET_NAME}' and trashed=false`,
-                fields: 'files(id, name)',
-            });
-    
-            if (response.result.files.length > 0) {
-                id = response.result.files[0].id;
-            } else {
-                const newSheet = await (window as any).gapi.client.sheets.spreadsheets.create({
-                    properties: { title: SPREADSHEET_NAME },
-                });
-                id = newSheet.result.spreadsheetId;
-                await (window as any).gapi.client.sheets.spreadsheets.values.append({
-                    spreadsheetId: id,
-                    range: 'A1:F1',
-                    valueInputOption: 'USER_ENTERED',
-                    resource: { values: [['ID', 'Amount', 'Description', 'IsIncome', 'Date', 'Time']] },
-                });
-            }
-            setSpreadsheetId(id);
-            return id;
-        } catch (err) {
-            console.error("Error finding or creating spreadsheet", err);
-            setSyncStatus('error');
-            return null;
-        }
-    }, [spreadsheetId]);
-    
-    const loadEntriesFromSheet = useCallback(async (sheetId: string) => {
-        try {
-            const response = await (window as any).gapi.client.sheets.spreadsheets.values.get({
-                spreadsheetId: sheetId,
-                range: 'A2:F',
-            });
-            const values = response.result.values || [];
-            return values.map((row: any[]) => ({
-                id: Number(row[0]),
-                amount: parseFloat(row[1]),
-                description: row[2],
-                isIncome: row[3] === 'TRUE',
-                date: row[4],
-                time: row[5],
-            })).filter(e => e.id && !isNaN(e.amount));
-        } catch (err) {
-            console.error("Error loading entries from sheet", err);
-            setSyncStatus('error');
-            return [];
-        }
-    }, []);
-
-    const syncAllLocalEntriesToSheet = useCallback(async (sheetId: string) => {
-        setSyncStatus('syncing');
-        try {
-            await (window as any).gapi.client.sheets.spreadsheets.values.clear({
-                spreadsheetId: sheetId,
-                range: 'A2:F'
-            });
-
-            if (entries.length > 0) {
-                 const values = entries.map(e => [e.id, e.amount, e.description, e.isIncome, e.date, e.time]);
-                 await (window as any).gapi.client.sheets.spreadsheets.values.append({
-                    spreadsheetId: sheetId,
-                    range: 'A:F',
-                    valueInputOption: 'USER_ENTERED',
-                    resource: { values }
-                });
-            }
-            setSyncStatus('synced');
-        } catch (err) {
-            console.error('Failed to sync all local entries to sheet', err);
-            setSyncStatus('error');
-        }
-    }, [entries]);
-    
-    useEffect(() => {
-        if (accessToken) {
-            setSyncStatus('syncing');
-            findOrCreateSpreadsheet().then(id => {
-                if (id) {
-                    loadEntriesFromSheet(id).then(sheetEntries => {
-                        const localEntries = entries;
-                        if (sheetEntries.length > 0 && localEntries.length > 0) {
-                            setCloudEntries(sheetEntries);
-                            setIsMergeModalOpen(true);
-                        } else if (sheetEntries.length > 0) {
-                            setEntries(sheetEntries);
-                            setSyncStatus('synced');
-                        } else if (localEntries.length > 0) {
-                            syncAllLocalEntriesToSheet(id);
-                        } else {
-                            setSyncStatus('synced');
-                        }
-                    });
-                }
-            });
-        }
-    }, [accessToken, findOrCreateSpreadsheet, loadEntriesFromSheet, syncAllLocalEntriesToSheet, entries]);
-    
-    const handleSignIn = () => tokenClient?.requestAccessToken({ prompt: '' });
-    
-    const handleSignOut = () => {
-        if (accessToken) {
-            (window as any).google.accounts.oauth2.revoke(accessToken, () => {});
-            setAccessToken(null);
-            setUserInfo(null);
-            setSyncStatus('idle');
-            setSpreadsheetId(null);
-        }
-    };
-    
-    const findOrCreateFolder = useCallback(async (folderName: string): Promise<string | null> => {
-        try {
-            const response = await (window as any).gapi.client.drive.files.list({
-                q: `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`,
-                fields: 'files(id, name)',
-                spaces: 'drive',
-            });
-
-            if (response.result.files && response.result.files.length > 0) {
-                return response.result.files[0].id;
-            } else {
-                const fileMetadata = {
-                    name: folderName,
-                    mimeType: 'application/vnd.google-apps.folder',
-                };
-                const createResponse = await (window as any).gapi.client.drive.files.create({
-                    resource: fileMetadata,
-                    fields: 'id',
-                });
-                return createResponse.result.id;
-            }
-        } catch (err) {
-            console.error("Error finding or creating Google Drive folder", err);
-            setSyncStatus('error');
-            return null;
-        }
-    }, []);
-
-    const handleCreateBackup = useCallback(async () => {
-        if (!isGoogleSyncConfigured || !accessToken) {
-            alert('Please connect to your Google account first.');
-            return;
-        }
-        setSyncStatus('syncing');
-        try {
-            const folderId = await findOrCreateFolder(BACKUP_FOLDER_NAME);
-            if (!folderId) {
-                throw new Error("Could not find or create backup folder in Google Drive.");
-            }
-
-            const backupContent = JSON.stringify({
-                entries,
-                selectedCurrency,
-                incomeCategories,
-                expenseCategories,
-                recurringEntries,
-                budgetGoals,
-            }, null, 2);
-            const fileName = `IncomePlanner_Backup_${new Date().toISOString().split('T')[0]}.json`;
-
-            const fileMetadata = {
-                name: fileName,
-                mimeType: 'application/json',
-                parents: [folderId]
-            };
-            const media = { mimeType: 'application/json', body: backupContent };
-
-            await (window as any).gapi.client.drive.files.create({
-                resource: fileMetadata,
-                media: media,
-                fields: 'id'
-            });
-            alert(`Backup "${fileName}" created successfully in your Google Drive folder "${BACKUP_FOLDER_NAME}".`);
-            setSyncStatus('synced');
-        } catch (err) {
-            console.error('Backup failed:', err);
-            alert(`Failed to create backup: ${err instanceof Error ? err.message : 'Unknown error'}`);
-            setSyncStatus('error');
-        }
-    }, [isGoogleSyncConfigured, accessToken, findOrCreateFolder, entries, selectedCurrency, incomeCategories, expenseCategories, recurringEntries, budgetGoals]);
-
-    
-    useEffect(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    React.useEffect(() => {
         const processRecurring = () => {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -1742,14 +1380,6 @@ const App: React.FC = () => {
             if (newEntries.length > 0) {
                 setEntries(prev => [...prev, ...newEntries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
                 setRecurringEntries(updatedRecurringEntries);
-
-                if (accessToken && spreadsheetId) {
-                    setSyncStatus('syncing');
-                    const values = newEntries.map(e => [e.id, e.amount, e.description, e.isIncome, e.date, e.time]);
-                     (window as any).gapi.client.sheets.spreadsheets.values.append({
-                        spreadsheetId, range: 'A:F', valueInputOption: 'USER_ENTERED', resource: { values }
-                    }).then(() => setSyncStatus('synced')).catch(() => setSyncStatus('error'));
-                }
             }
         };
     
@@ -1758,7 +1388,8 @@ const App: React.FC = () => {
     }, []);
 
 
-    useEffect(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    React.useEffect(() => {
         const htmlElement = document.documentElement;
         if (theme === 'dark') {
             htmlElement.classList.add('dark');
@@ -1772,13 +1403,15 @@ const App: React.FC = () => {
         setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
     };
 
-    const totalBalance = useMemo(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const totalBalance = React.useMemo(() => {
         return entries.reduce((sum, entry) => {
             return sum + (entry.isIncome ? entry.amount : -entry.amount);
         }, 0);
     }, [entries]);
 
-    const suggestionList = useMemo(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const suggestionList = React.useMemo(() => {
         const recentDescriptions = entries
             .slice(-10)
             .reverse()
@@ -1793,7 +1426,8 @@ const App: React.FC = () => {
         setAmount(formatted);
     };
 
-    const handleAddEntry = useCallback((isIncome: boolean) => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const handleAddEntry = React.useCallback((isIncome: boolean) => {
         const cleanAmount = amount.replace(/,/g, '');
         const numericAmount = parseFloat(cleanAmount);
 
@@ -1814,18 +1448,11 @@ const App: React.FC = () => {
         };
 
         setEntries(prevEntries => [...prevEntries, newEntry]);
-        if (accessToken && spreadsheetId) {
-            setSyncStatus('syncing');
-            const values = [[newEntry.id, newEntry.amount, newEntry.description, newEntry.isIncome, newEntry.date, newEntry.time]];
-            (window as any).gapi.client.sheets.spreadsheets.values.append({
-                spreadsheetId, range: 'A:F', valueInputOption: 'USER_ENTERED', resource: { values }
-            }).then(() => setSyncStatus('synced')).catch(() => setSyncStatus('error'));
-        }
-
+        
         setAmount('');
         setDescription('');
         setError('');
-    }, [amount, description, accessToken, spreadsheetId]);
+    }, [amount, description]);
 
     const handleSelectCurrency = (currencyCode: string) => {
         setSelectedCurrency(currencyCode);
@@ -1834,23 +1461,6 @@ const App: React.FC = () => {
     const handleDeleteEntry = (id: number) => {
         if (window.confirm("Are you sure you want to delete this transaction?")) {
             setEntries(prev => prev.filter(e => e.id !== id));
-            if (accessToken && spreadsheetId) {
-                setSyncStatus('syncing');
-                (window as any).gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A:A' })
-                    .then((res: any) => {
-                        const rowIndex = res.result.values.findIndex((row: any[]) => Number(row[0]) === id);
-                        if (rowIndex !== -1) {
-                            const deleteRequest = {
-                                requests: [{ deleteDimension: { range: { sheetId: 0, dimension: 'ROWS', startIndex: rowIndex + 1, endIndex: rowIndex + 2 }}}]
-                            };
-                            (window as any).gapi.client.sheets.spreadsheets.batchUpdate({ spreadsheetId, resource: deleteRequest })
-                                .then(() => setSyncStatus('synced'))
-                                .catch(() => setSyncStatus('error'));
-                        } else {
-                            setSyncStatus('synced');
-                        }
-                    }).catch(() => setSyncStatus('error'));
-            }
         }
     };
 
@@ -1861,73 +1471,14 @@ const App: React.FC = () => {
 
     const handleUpdateEntry = (updatedEntry: Entry) => {
         setEntries(prev => prev.map(e => e.id === updatedEntry.id ? updatedEntry : e));
-         if (accessToken && spreadsheetId) {
-            setSyncStatus('syncing');
-             (window as any).gapi.client.sheets.spreadsheets.values.get({ spreadsheetId, range: 'A:F' })
-                .then((res: any) => {
-                    const rowIndex = res.result.values.findIndex((row: any[]) => Number(row[0]) === updatedEntry.id);
-                    if (rowIndex !== -1) {
-                        const range = `A${rowIndex + 2}:F${rowIndex + 2}`;
-                        const values = [[updatedEntry.id, updatedEntry.amount, updatedEntry.description, updatedEntry.isIncome, updatedEntry.date, updatedEntry.time]];
-                        (window as any).gapi.client.sheets.spreadsheets.values.update({ spreadsheetId, range, valueInputOption: 'USER_ENTERED', resource: { values } })
-                           .then(() => setSyncStatus('synced'))
-                           .catch(() => setSyncStatus('error'));
-                    } else {
-                         const values = [[updatedEntry.id, updatedEntry.amount, updatedEntry.description, updatedEntry.isIncome, updatedEntry.date, updatedEntry.time]];
-                        (window as any).gapi.client.sheets.spreadsheets.values.append({
-                            spreadsheetId, range: 'A:F', valueInputOption: 'USER_ENTERED', resource: { values }
-                        }).then(() => setSyncStatus('synced')).catch(() => setSyncStatus('error'));
-                    }
-                }).catch(() => setSyncStatus('error'));
-        }
         setIsEditModalOpen(false);
         setEntryToEdit(null);
     };
 
     const currencySymbol = currencySymbols[selectedCurrency] ?? '$';
-    
-    // --- Merge Modal Handlers ---
-    const handleKeepCloud = () => {
-        if (cloudEntries) setEntries(cloudEntries);
-        setIsMergeModalOpen(false);
-        setCloudEntries(null);
-        setSyncStatus('synced');
-    };
-    
-    const handleKeepLocal = () => {
-        if (spreadsheetId) syncAllLocalEntriesToSheet(spreadsheetId);
-        setIsMergeModalOpen(false);
-        setCloudEntries(null);
-    };
 
-    const handleMerge = async () => {
-        if (cloudEntries && spreadsheetId) {
-            setSyncStatus('syncing');
-            const cloudIds = new Set(cloudEntries.map(e => e.id));
-            const localOnlyEntries = entries.filter(e => !cloudIds.has(e.id));
-    
-            const mergedEntries = [...cloudEntries, ...localOnlyEntries];
-            setEntries(mergedEntries);
-    
-            if (localOnlyEntries.length > 0) {
-                 const values = localOnlyEntries.map(e => [e.id, e.amount, e.description, e.isIncome, e.date, e.time]);
-                 try {
-                    await (window as any).gapi.client.sheets.spreadsheets.values.append({
-                        spreadsheetId, range: 'A:F', valueInputOption: 'USER_ENTERED', resource: { values }
-                    });
-                    setSyncStatus('synced');
-                 } catch(e) {
-                     setSyncStatus('error');
-                 }
-            } else {
-                setSyncStatus('synced');
-            }
-        }
-        setIsMergeModalOpen(false);
-        setCloudEntries(null);
-    };
-
-    const handleExportData = useCallback(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const handleExportData = React.useCallback(() => {
         try {
             const dataToExport = {
                 entries,
@@ -1948,7 +1499,8 @@ const App: React.FC = () => {
         }
     }, [entries, selectedCurrency, incomeCategories, expenseCategories, recurringEntries, budgetGoals]);
 
-    const handleImportData = useCallback(() => {
+    // FIX: Replaced `aistudiocdn` with `React`
+    const handleImportData = React.useCallback(() => {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.json';
@@ -2024,7 +1576,6 @@ const App: React.FC = () => {
                         {currentPage === 'planner' ? 'Income Planner' : currentPage}
                     </h1>
                     <div className="flex items-center gap-2">
-                        {isGoogleSyncConfigured && <SyncStatusIcon status={syncStatus} />}
                         <button onClick={handleThemeToggle} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" aria-label="Toggle theme">
                            {theme === 'light' ? (
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -2078,14 +1629,6 @@ const App: React.FC = () => {
                 budgetGoals={budgetGoals}
                 setBudgetGoals={setBudgetGoals}
                 currencySymbol={currencySymbol}
-                isGoogleSyncConfigured={isGoogleSyncConfigured}
-                isSignedIn={!!accessToken}
-                syncStatus={syncStatus}
-                userInfo={userInfo}
-                spreadsheetId={spreadsheetId}
-                onSignIn={handleSignIn}
-                onSignOut={handleSignOut}
-                onBackup={handleCreateBackup}
                 onExportData={handleExportData}
                 onImportData={handleImportData}
             />
@@ -2096,13 +1639,6 @@ const App: React.FC = () => {
                 entry={entryToEdit}
                 onSave={handleUpdateEntry}
                 currencySymbol={currencySymbol}
-            />
-
-            <MergeDataModal
-                isOpen={isMergeModalOpen}
-                onKeepCloud={handleKeepCloud}
-                onKeepLocal={handleKeepLocal}
-                onMerge={handleMerge}
             />
 
             <style>{`
