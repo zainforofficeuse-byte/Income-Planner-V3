@@ -479,6 +479,7 @@ interface SettingsModalProps {
     currencySymbol: string;
     onExportData: () => void;
     onImportFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onClearAllData: () => void;
     userProfile: { name: string; email: string; picture: string; } | null;
     onGoogleSignIn: () => void;
     onGoogleSignOut: () => void;
@@ -490,7 +491,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     isOpen, onClose, onSelectCurrency, selectedCurrency, 
     incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
     recurringEntries, setRecurringEntries, budgetGoals, setBudgetGoals, currencySymbol,
-    onExportData, onImportFileSelect,
+    onExportData, onImportFileSelect, onClearAllData,
     userProfile, onGoogleSignIn, onGoogleSignOut, syncStatus, isGoogleSyncConfigured,
 }) => {
     if (!isOpen) return null;
@@ -585,7 +586,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                              <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Local Data Management</h3>
-                             <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Export your transaction history to a CSV file, or import from a previously saved CSV. This only affects transaction data and does not use Google Sync.</p>
+                             <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Manage your locally stored app data. This does not affect any data synced with Google.</p>
                              <div className="space-y-3">
                                 <button onClick={onExportData} className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V5a1 1 0 112 0v5.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
@@ -605,6 +606,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                     className="hidden"
                                     onChange={onImportFileSelect}
                                 />
+                                <button onClick={onClearAllData} className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 font-semibold rounded-lg text-sm hover:bg-red-200 dark:hover:bg-red-900/60 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                    <span>Clear All Local Data</span>
+                                </button>
                              </div>
                         </div>
                     </div>
@@ -852,11 +857,21 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
     handleAmountChange, setDescription, handleAddEntry, onEditEntry, onDeleteEntry
 }) => {
     // FIX: Replaced `aistudiocdn` with `React`
+    const [showSuggestions, setShowSuggestions] = React.useState(false);
+
     const findIcon = React.useCallback((description: string, isIncome: boolean): string | undefined => {
         const list = isIncome ? incomeCategories : expenseCategories;
         const category = list.find(cat => cat.name.toLowerCase() === description.toLowerCase());
         return category?.icon;
     }, [incomeCategories, expenseCategories]);
+
+    const filteredSuggestions = React.useMemo(() => 
+        description 
+            ? suggestionList.filter(s => 
+                s.toLowerCase().includes(description.toLowerCase()) && s.toLowerCase() !== description.toLowerCase()
+            ) 
+            : suggestionList,
+    [suggestionList, description]);
 
     return (
     <>
@@ -864,7 +879,7 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
             {entries.length > 0 ? (
                 <div className="flex-grow bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 mb-4 overflow-hidden flex flex-col">
                    <div className="overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 pr-2">
-                     {entries.slice().reverse().map(entry => (
+                     {entries.map(entry => (
                         <HistoryItem 
                             key={entry.id} 
                             entry={entry} 
@@ -900,25 +915,34 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
             </div>
 
             {amount && (
-                <div className="mt-4 animate-fade-in">
+                <div className="mt-4 animate-fade-in relative">
                     <input
                         type="text"
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
+                        onFocus={() => setShowSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                         placeholder="Description (e.g., Salary, Groceries)"
                         className="w-full bg-gray-100 border-2 border-gray-200 rounded-xl py-3 px-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                        autoComplete="off"
                     />
-                    <div className="mt-2 flex overflow-x-auto space-x-2 pb-2 -mx-4 px-4">
-                        {suggestionList.map(s => (
-                            <button 
-                              key={s} 
-                              onClick={() => setDescription(s)}
-                              className="flex-shrink-0 px-4 py-1.5 bg-white border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
-                            >
-                              {s}
-                            </button>
-                        ))}
-                    </div>
+                     {showSuggestions && filteredSuggestions.length > 0 && (
+                        <div className="absolute bottom-full mb-2 w-full bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 max-h-40 overflow-y-auto z-20 animate-fade-in-fast">
+                            {filteredSuggestions.map(s => (
+                                <div
+                                    key={s}
+                                    onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        setDescription(s);
+                                        setShowSuggestions(false);
+                                    }}
+                                    className="px-4 py-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                                >
+                                    {s}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
             
@@ -1680,9 +1704,10 @@ const App: React.FC = () => {
             .reverse()
             .map(e => e.description);
         const uniqueRecent = [...new Set(recentDescriptions)];
-        const combined = [...expenseCategories.map(c => c.name), ...uniqueRecent];
+        const allCategories = [...incomeCategories.map(c => c.name), ...expenseCategories.map(c => c.name)];
+        const combined = [...allCategories, ...uniqueRecent];
         return [...new Set(combined)];
-    }, [entries, expenseCategories]);
+    }, [entries, incomeCategories, expenseCategories]);
     
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const formatted = formatNumberInput(e.target.value);
@@ -1841,6 +1866,27 @@ const App: React.FC = () => {
         event.target.value = '';
     }, [setEntries]);
 
+    const handleClearAllData = () => {
+        if (window.confirm("Are you absolutely sure you want to delete all local data? This includes all transactions, categories, goals, and recurring entries. This action cannot be undone.")) {
+            setEntries([]);
+            setIncomeCategories(defaultIncomeCategories);
+            setExpenseCategories(defaultExpenseCategories);
+            setRecurringEntries([]);
+            setBudgetGoals([]);
+            setSpreadsheetId(null);
+
+            localStorage.removeItem('incomePlanner-entries');
+            localStorage.removeItem('incomePlanner-incomeCategories');
+            localStorage.removeItem('incomePlanner-expenseCategories');
+            localStorage.removeItem('incomePlanner-recurringEntries');
+            localStorage.removeItem('incomePlanner-budgetGoals');
+            localStorage.removeItem('incomePlanner-spreadsheetId');
+
+            alert("All local data has been cleared.");
+            setIsSettingsOpen(false);
+        }
+    };
+
     const renderPage = () => {
         switch (currentPage) {
             case 'planner':
@@ -1932,6 +1978,7 @@ const App: React.FC = () => {
                 currencySymbol={currencySymbol}
                 onExportData={handleExportData}
                 onImportFileSelect={handleImportFileChange}
+                onClearAllData={handleClearAllData}
                 userProfile={userProfile}
                 onGoogleSignIn={handleGoogleSignIn}
                 onGoogleSignOut={handleGoogleSignOut}
@@ -1956,6 +2003,11 @@ const App: React.FC = () => {
                     to { opacity: 1; transform: translateY(0); }
                 }
                 .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+                @keyframes fade-in-fast {
+                    from { opacity: 0; transform: translateY(5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in-fast { animation: fade-in-fast 0.15s ease-out forwards; }
                 /* Custom scrollbar for suggestions */
                 .overflow-x-auto::-webkit-scrollbar {
                     height: 4px;
