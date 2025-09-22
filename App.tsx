@@ -477,7 +477,7 @@ interface SettingsModalProps {
     setBudgetGoals: React.Dispatch<React.SetStateAction<BudgetGoal[]>>;
     currencySymbol: string;
     onExportData: () => void;
-    onImportData: () => void;
+    onImportFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
     userProfile: { name: string; email: string; picture: string; } | null;
     onGoogleSignIn: () => void;
     onGoogleSignOut: () => void;
@@ -489,7 +489,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     isOpen, onClose, onSelectCurrency, selectedCurrency, 
     incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
     recurringEntries, setRecurringEntries, budgetGoals, setBudgetGoals, currencySymbol,
-    onExportData, onImportData,
+    onExportData, onImportFileSelect,
     userProfile, onGoogleSignIn, onGoogleSignOut, syncStatus, isGoogleSyncConfigured,
 }) => {
     if (!isOpen) return null;
@@ -590,10 +590,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V5a1 1 0 112 0v5.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                                     <span>Export Data to File</span>
                                 </button>
-                                <button onClick={onImportData} className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                <label
+                                    htmlFor="import-data-file"
+                                    className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition cursor-pointer"
+                                >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 9.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 7.414V13a1 1 0 11-2 0V7.414L6.293 9.707z" clipRule="evenodd" /></svg>
                                     <span>Import Data from File</span>
-                                </button>
+                                </label>
+                                <input
+                                    id="import-data-file"
+                                    type="file"
+                                    accept=".json"
+                                    className="hidden"
+                                    onChange={onImportFileSelect}
+                                />
                              </div>
                         </div>
                     </div>
@@ -1751,45 +1761,41 @@ const App: React.FC = () => {
         }
     }, [entries, selectedCurrency, incomeCategories, expenseCategories, recurringEntries, budgetGoals]);
 
-    // FIX: Replaced `aistudiocdn` with `React`
-    const handleImportData = React.useCallback(() => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        input.onchange = (event) => {
-            const file = (event.target as HTMLInputElement).files?.[0];
-            if (!file) return;
+    const handleImportFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const text = e.target?.result;
-                if (typeof text !== 'string') {
-                    alert('Could not read file content.');
-                    return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result;
+            if (typeof text !== 'string') {
+                alert('Could not read file content.');
+                return;
+            }
+            try {
+                const data = JSON.parse(text);
+                if (!data.entries || !data.selectedCurrency || !data.incomeCategories || !data.expenseCategories) {
+                    throw new Error("Invalid or corrupted data file.");
                 }
-                try {
-                    const data = JSON.parse(text);
-                    if (!data.entries || !data.selectedCurrency || !data.incomeCategories || !data.expenseCategories) {
-                        throw new Error("Invalid or corrupted data file.");
-                    }
-                    if (window.confirm("Are you sure you want to import this data? This will overwrite all current local data.")) {
-                        setEntries(data.entries || []);
-                        setSelectedCurrency(data.selectedCurrency || 'USD');
-                        setIncomeCategories(data.incomeCategories || defaultIncomeCategories);
-                        setExpenseCategories(data.expenseCategories || defaultExpenseCategories);
-                        setRecurringEntries(data.recurringEntries || []);
-                        setBudgetGoals(data.budgetGoals || []);
-                        alert("Data imported successfully!");
-                    }
-                } catch (error) {
-                    console.error("Failed to import data", error);
-                    alert(`An error occurred while importing data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                if (window.confirm("Are you sure you want to import this data? This will overwrite all current local data.")) {
+                    setEntries(data.entries || []);
+                    setSelectedCurrency(data.selectedCurrency || 'USD');
+                    setIncomeCategories(data.incomeCategories || defaultIncomeCategories);
+                    setExpenseCategories(data.expenseCategories || defaultExpenseCategories);
+                    setRecurringEntries(data.recurringEntries || []);
+                    setBudgetGoals(data.budgetGoals || []);
+                    alert("Data imported successfully!");
                 }
-            };
-            reader.onerror = () => alert('Error reading the file.');
-            reader.readAsText(file);
+            } catch (error) {
+                console.error("Failed to import data", error);
+                alert(`An error occurred while importing data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
         };
-        input.click();
+        reader.onerror = () => alert('Error reading the file.');
+        reader.readAsText(file);
+        
+        // Reset file input to allow selecting the same file again
+        event.target.value = '';
     }, [setEntries, setSelectedCurrency, setIncomeCategories, setExpenseCategories, setRecurringEntries, setBudgetGoals]);
 
     const renderPage = () => {
@@ -1882,7 +1888,7 @@ const App: React.FC = () => {
                 setBudgetGoals={setBudgetGoals}
                 currencySymbol={currencySymbol}
                 onExportData={handleExportData}
-                onImportData={handleImportData}
+                onImportFileSelect={handleImportFileChange}
                 userProfile={userProfile}
                 onGoogleSignIn={handleGoogleSignIn}
                 onGoogleSignOut={handleGoogleSignOut}
