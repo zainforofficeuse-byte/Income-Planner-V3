@@ -1363,7 +1363,7 @@ const App: React.FC = () => {
     // FIX: Replaced `aistudiocdn` with `React`
     const [error, setError] = React.useState<string>('');
     // FIX: Replaced `aistudiocdn` with `React`
-    const [currentPage, setCurrentPage] = React.useState<'planner' | 'dashboard' | 'goals'>('dashboard');
+    const [currentPage, setCurrentPage] = React.useState<'planner' | 'dashboard' | 'goals'>('planner');
     
     // FIX: Replaced `aistudiocdn` with `React`
     const [incomeCategories, setIncomeCategories] = React.useState<Category[]>(() => {
