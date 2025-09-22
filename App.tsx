@@ -1197,7 +1197,7 @@ const BreakdownDisplay: React.FC<BreakdownDisplayProps> = ({ title, data, total,
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-            <h3 className={`text-lg font-bold mb-3 ${isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{title}</h3>
+            <h3 className={`text-lg font-bold mb-3 text-gray-700 dark:text-gray-200`}>{title}</h3>
             {data.length > 0 ? (
                 <>
                     <div style={{ width: '100%', height: 200 }}>
@@ -1227,7 +1227,7 @@ const BreakdownDisplay: React.FC<BreakdownDisplayProps> = ({ title, data, total,
                     </ul>
                 </>
             ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No {isIncome ? 'income' : 'expense'} data yet.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No {isIncome ? 'income' : 'expense'} data for this period.</p>
             )}
         </div>
     );
@@ -1239,28 +1239,78 @@ interface DashboardPageProps {
     currencySymbol: string;
 }
 
+type Period = '7days' | 'thisMonth' | '30days' | 'thisYear' | 'all' | 'custom';
+const periodLabels: { [key in Period]: string } = {
+    '7days': 'Last 7 Days',
+    'thisMonth': 'This Month',
+    '30days': 'Last 30 Days',
+    'thisYear': 'This Year',
+    'all': 'All Time',
+    'custom': 'Custom Range'
+};
+
+
 const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }) => {
-    // FIX: Replaced `aistudiocdn` with `React`
-    const { totalIncome, totalExpense, allTimeIncomeByCategory, allTimeExpenseByCategory } = React.useMemo(() => {
-        const incomeEntries = entries.filter(e => e.isIncome);
-        const expenseEntries = entries.filter(e => !e.isIncome);
+    const [period, setPeriod] = React.useState<Period>('7days');
+    const today = new Date();
+    const [customEndDate, setCustomEndDate] = React.useState(today.toLocaleDateString('en-CA'));
+    const [customStartDate, setCustomStartDate] = React.useState(() => {
+        const date = new Date();
+        date.setDate(date.getDate() - 6);
+        return date.toLocaleDateString('en-CA');
+    });
+    
+    const { filteredEntries, dateRange } = React.useMemo(() => {
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+        let startDate = new Date();
+        startDate.setHours(0, 0, 0, 0);
+        let endDate = today;
 
-        const totalIncome = incomeEntries.reduce((sum, e) => sum + e.amount, 0);
-        const totalExpense = expenseEntries.reduce((sum, e) => sum + e.amount, 0);
-
-        const groupByCategory = (entryList: Entry[]) => 
-            entryList.reduce((acc, entry) => {
-                acc[entry.category] = (acc[entry.category] || 0) + entry.amount;
-                return acc;
-            }, {} as Record<string, number>);
-
-        const allTimeIncomeByCategory = Object.entries(groupByCategory(incomeEntries)).sort((a, b) => b[1] - a[1]);
-        const allTimeExpenseByCategory = Object.entries(groupByCategory(expenseEntries)).sort((a, b) => b[1] - a[1]);
+        switch (period) {
+            case '7days':
+                startDate.setDate(today.getDate() - 6);
+                break;
+            case 'thisMonth':
+                startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                break;
+            case '30days':
+                startDate.setDate(today.getDate() - 29);
+                break;
+            case 'thisYear':
+                startDate = new Date(today.getFullYear(), 0, 1);
+                break;
+            case 'all':
+                if (entries.length === 0) return { filteredEntries: [], dateRange: { start: today, end: today } };
+                const firstEntryDate = entries.reduce((earliest, current) => 
+                    new Date(current.date) < new Date(earliest.date) ? current : earliest
+                ).date;
+                return { filteredEntries: entries, dateRange: { start: new Date(firstEntryDate), end: today } };
+            case 'custom':
+                startDate = new Date(customStartDate + 'T00:00:00');
+                endDate = new Date(customEndDate + 'T23:59:59');
+                break;
+        }
         
-        return { totalIncome, totalExpense, allTimeIncomeByCategory, allTimeExpenseByCategory };
-    }, [entries]);
+        const startDateStr = startDate.toLocaleDateString('en-CA');
+        const endDateStr = endDate.toLocaleDateString('en-CA');
 
-    // FIX: Replaced `aistudiocdn` with `React`
+        const filtered = entries.filter(e => e.date >= startDateStr && e.date <= endDateStr);
+        return { filteredEntries: filtered, dateRange: { start: startDate, end: endDate } };
+
+    }, [entries, period, customStartDate, customEndDate]);
+
+    const { totalIncome, totalExpense } = React.useMemo(() => {
+        return filteredEntries.reduce((acc, entry) => {
+            if (entry.isIncome) {
+                acc.totalIncome += entry.amount;
+            } else {
+                acc.totalExpense += entry.amount;
+            }
+            return acc;
+        }, { totalIncome: 0, totalExpense: 0 });
+    }, [filteredEntries]);
+
     const { dailyIncome, dailyExpense } = React.useMemo(() => {
         const todayStr = new Date().toLocaleDateString('en-CA');
         const todaysEntries = entries.filter(e => e.date === todayStr);
@@ -1269,101 +1319,128 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
         return { dailyIncome, dailyExpense };
     }, [entries]);
 
-    // FIX: Replaced `aistudiocdn` with `React`
-    const weeklyChartData = React.useMemo(() => {
-        const data: { name: string; income: number; expense: number }[] = [];
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+    const { timeSeriesData, timeSeriesTitle } = React.useMemo(() => {
+        const diffTime = Math.abs(dateRange.end.getTime() - dateRange.start.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date(today);
-            date.setDate(date.getDate() - i);
-            const dateStr = date.toLocaleDateString('en-CA');
-            const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-            
-            const dayEntries = entries.filter(e => e.date === dateStr);
-            const income = dayEntries.filter(e => e.isIncome).reduce((sum, e) => sum + e.amount, 0);
-            const expense = dayEntries.filter(e => !e.isIncome).reduce((sum, e) => sum + e.amount, 0);
-
-            data.push({ name: dayName, income, expense });
-        }
-        return data;
-    }, [entries]);
-
-    // FIX: Replaced `aistudiocdn` with `React`
-    const { monthlyExpenseByCategory, totalMonthlyExpense } = React.useMemo(() => {
-        const currentMonthStr = new Date().toISOString().slice(0, 7); // YYYY-MM
-        const monthlyExpenses = entries.filter(e => !e.isIncome && e.date.slice(0, 7) === currentMonthStr);
-
-        const totalMonthlyExpense = monthlyExpenses.reduce((sum, e) => sum + e.amount, 0);
-
-        const groupByCategory = (entryList: Entry[]) => 
-            entryList.reduce((acc, entry) => {
-                acc[entry.category] = (acc[entry.category] || 0) + entry.amount;
-                return acc;
-            }, {} as Record<string, number>);
-
-        const monthlyExpenseByCategory = Object.entries(groupByCategory(monthlyExpenses)).sort((a, b) => b[1] - a[1]);
-        
-        return { monthlyExpenseByCategory, totalMonthlyExpense };
-    }, [entries]);
-
-    // FIX: Replaced `aistudiocdn` with `React`
-    const yearlyTrendData = React.useMemo(() => {
-        const today = new Date();
-        const currentYear = today.getFullYear();
-        const currentMonthIndex = today.getMonth(); // 0-11
-
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        
-        const data = monthNames.slice(0, currentMonthIndex + 1).map(name => ({
-            month: name,
-            income: 0,
-            expense: 0,
-        }));
-
-        const yearEntries = entries.filter(e => new Date(e.date).getFullYear() === currentYear);
-
-        for (const entry of yearEntries) {
-            const monthIndex = new Date(entry.date).getMonth();
-            if (monthIndex <= currentMonthIndex) {
-                if (entry.isIncome) {
-                    data[monthIndex].income += entry.amount;
-                } else {
-                    data[monthIndex].expense += entry.amount;
-                }
+        if (diffDays <= 31) { // Daily view
+            const data: { name: string; income: number; expense: number }[] = [];
+            for (let i = 0; i < diffDays; i++) {
+                const date = new Date(dateRange.start);
+                date.setDate(date.getDate() + i);
+                const dateStr = date.toLocaleDateString('en-CA');
+                const dayName = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                
+                const dayEntries = filteredEntries.filter(e => e.date === dateStr);
+                const income = dayEntries.filter(e => e.isIncome).reduce((sum, e) => sum + e.amount, 0);
+                const expense = dayEntries.filter(e => !e.isIncome).reduce((sum, e) => sum + e.amount, 0);
+                data.push({ name: dayName, income, expense });
             }
+            return { timeSeriesData: data, timeSeriesTitle: "Daily Summary" };
+        } else if (diffDays <= 90) { // Weekly view
+            const weekData: { [key: string]: { income: number; expense: number } } = {};
+            for (const entry of filteredEntries) {
+                const entryDate = new Date(entry.date + 'T00:00:00');
+                const weekStart = new Date(entryDate);
+                weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+                const weekKey = weekStart.toLocaleDateString('en-CA');
+                
+                if (!weekData[weekKey]) weekData[weekKey] = { income: 0, expense: 0 };
+                if (entry.isIncome) weekData[weekKey].income += entry.amount;
+                else weekData[weekKey].expense += entry.amount;
+            }
+            const data = Object.keys(weekData).sort().map(weekKey => {
+                const weekStartDate = new Date(weekKey + 'T00:00:00');
+                const weekName = `Wk of ${weekStartDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+                return { name: weekName, ...weekData[weekKey] };
+            });
+            return { timeSeriesData: data, timeSeriesTitle: "Weekly Summary" };
+        } else { // Monthly view
+            const monthData: { [key: string]: { income: number; expense: number } } = {};
+            for (const entry of filteredEntries) {
+                const monthKey = entry.date.slice(0, 7); // YYYY-MM
+                if (!monthData[monthKey]) monthData[monthKey] = { income: 0, expense: 0 };
+                if (entry.isIncome) monthData[monthKey].income += entry.amount;
+                else monthData[monthKey].expense += entry.amount;
+            }
+            const data = Object.keys(monthData).sort().map(monthKey => {
+                const monthDate = new Date(monthKey + '-02'); // Use day 2 to avoid timezone issues
+                return {
+                    name: monthDate.toLocaleDateString('en-US', { year: '2-digit', month: 'short' }),
+                    ...monthData[monthKey]
+                };
+            });
+            return { timeSeriesData: data, timeSeriesTitle: "Monthly Summary" };
         }
-        
-        return data;
-    }, [entries]);
+    }, [filteredEntries, dateRange]);
+
+    const { periodExpenseByCategory, totalPeriodExpense } = React.useMemo(() => {
+        const expenses = filteredEntries.filter(e => !e.isIncome);
+        const total = expenses.reduce((sum, e) => sum + e.amount, 0);
+        const byCategory = expenses.reduce((acc, entry) => {
+            acc[entry.category] = (acc[entry.category] || 0) + entry.amount;
+            return acc;
+        }, {} as Record<string, number>);
+        const sortedByCategory = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+        return { periodExpenseByCategory: sortedByCategory, totalPeriodExpense: total };
+    }, [filteredEntries]);
+
+    const { periodIncomeByCategory, totalPeriodIncome } = React.useMemo(() => {
+        const incomes = filteredEntries.filter(e => e.isIncome);
+        const total = incomes.reduce((sum, e) => sum + e.amount, 0);
+        const byCategory = incomes.reduce((acc, entry) => {
+            acc[entry.category] = (acc[entry.category] || 0) + entry.amount;
+            return acc;
+        }, {} as Record<string, number>);
+        const sortedByCategory = Object.entries(byCategory).sort((a, b) => b[1] - a[1]);
+        return { periodIncomeByCategory: sortedByCategory, totalPeriodIncome: total };
+    }, [filteredEntries]);
 
     const accountBalances = React.useMemo(() => {
+        const endDateStr = dateRange.end.toLocaleDateString('en-CA');
+        const entriesUpToPeriodEnd = entries.filter(e => e.date <= endDateStr);
         const balances: Record<string, number> = {};
-        for (const entry of entries) {
-            if (!balances[entry.account]) {
-                balances[entry.account] = 0;
-            }
+        for (const entry of entriesUpToPeriodEnd) {
+            if (!balances[entry.account]) balances[entry.account] = 0;
             balances[entry.account] += entry.isIncome ? entry.amount : -entry.amount;
         }
         return Object.entries(balances).sort((a, b) => b[1] - a[1]);
-    }, [entries]);
+    }, [entries, dateRange]);
+
 
     return (
         <div className="space-y-6 overflow-y-auto pb-24">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 border border-gray-200 dark:border-gray-700">
+                <select 
+                    value={period} 
+                    onChange={(e) => setPeriod(e.target.value as Period)}
+                    className="w-full bg-gray-100 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg py-2 px-3 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                    {Object.entries(periodLabels).map(([key, label]) => (
+                        <option key={key} value={key}>{label}</option>
+                    ))}
+                </select>
+                {period === 'custom' && (
+                    <div className="grid grid-cols-2 gap-2 mt-2 animate-fade-in-fast">
+                        <input type="date" value={customStartDate} onChange={e => setCustomStartDate(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg py-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                        <input type="date" value={customEndDate} onChange={e => setCustomEndDate(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-700 border-2 border-gray-200 dark:border-gray-600 rounded-lg py-1.5 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    </div>
+                )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4 text-center">
                 <div className="bg-green-100 dark:bg-green-900/60 p-4 rounded-2xl">
-                    <p className="text-sm font-medium text-green-800 dark:text-green-300">Total Income</p>
+                    <p className="text-sm font-medium text-green-800 dark:text-green-300">Income</p>
                     <p className="text-xl font-bold text-green-700 dark:text-green-200">{currencySymbol} {totalIncome.toLocaleString()}</p>
                 </div>
                 <div className="bg-red-100 dark:bg-red-900/60 p-4 rounded-2xl">
-                    <p className="text-sm font-medium text-red-800 dark:text-red-300">Total Expense</p>
+                    <p className="text-sm font-medium text-red-800 dark:text-red-300">Expense</p>
                     <p className="text-xl font-bold text-red-700 dark:text-red-200">{currencySymbol} {totalExpense.toLocaleString()}</p>
                 </div>
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-                <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">Account Balances</h3>
+                <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">Account Balances <span className="text-xs font-normal text-gray-400">(as of {new Date(dateRange.end).toLocaleDateString()})</span></h3>
                 {accountBalances.length > 0 ? (
                     <ul className="space-y-2">
                         {accountBalances.map(([account, balance]) => (
@@ -1395,11 +1472,11 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-                <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Last 7 Days</h3>
-                {weeklyChartData.some(d => d.income > 0 || d.expense > 0) ? (
+                <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">{timeSeriesTitle}</h3>
+                {timeSeriesData.some(d => d.income > 0 || d.expense > 0) ? (
                     <div style={{ width: '100%', height: 250 }}>
                         <ResponsiveContainer>
-                            <BarChart data={weeklyChartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                            <BarChart data={timeSeriesData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
                                 <XAxis dataKey="name" tick={{ fill: 'currentColor', fontSize: 12 }} />
                                 <YAxis tick={{ fill: 'currentColor', fontSize: 12 }} />
@@ -1409,6 +1486,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
                                         border: '1px solid #e5e7eb',
                                         borderRadius: '0.75rem',
                                         backdropFilter: 'blur(4px)',
+                                        color: '#1f2937'
                                     }}
                                     cursor={{ fill: 'rgba(209, 213, 219, 0.3)'}}
                                 />
@@ -1419,45 +1497,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
                         </ResponsiveContainer>
                     </div>
                 ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No activity in the last 7 days.</p>
-                )}
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-                <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Year-to-Date Trend</h3>
-                {yearlyTrendData.some(d => d.income > 0 || d.expense > 0) ? (
-                    <div style={{ width: '100%', height: 250 }}>
-                        <ResponsiveContainer>
-                            <LineChart data={yearlyTrendData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                                <XAxis dataKey="month" tick={{ fill: 'currentColor', fontSize: 12 }} />
-                                <YAxis tick={{ fill: 'currentColor', fontSize: 12 }} />
-                                <Tooltip
-                                    contentStyle={{
-                                        backgroundColor: 'rgba(255, 255, 255, 0.8)',
-                                        border: '1px solid #e5e7eb',
-                                        borderRadius: '0.75rem',
-                                        backdropFilter: 'blur(4px)',
-                                    }}
-                                    cursor={{ fill: 'rgba(209, 213, 219, 0.3)' }}
-                                />
-                                <Legend wrapperStyle={{fontSize: "12px"}}/>
-                                <Line type="monotone" dataKey="income" name="Income" stroke="#22c55e" strokeWidth={2} activeDot={{ r: 6 }} />
-                                <Line type="monotone" dataKey="expense" name="Expense" stroke="#ef4444" strokeWidth={2} activeDot={{ r: 6 }} />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No data for this year yet.</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No activity in this period.</p>
                 )}
             </div>
             
-            <BreakdownDisplay title="This Month's Spending" data={monthlyExpenseByCategory} total={totalMonthlyExpense} isIncome={false} currencySymbol={currencySymbol} />
-            <BreakdownDisplay title="All-Time Income" data={allTimeIncomeByCategory} total={totalIncome} isIncome={true} currencySymbol={currencySymbol} />
-            <BreakdownDisplay title="All-Time Expense" data={allTimeExpenseByCategory} total={totalExpense} isIncome={false} currencySymbol={currencySymbol} />
+            <BreakdownDisplay title="Spending Breakdown" data={periodExpenseByCategory} total={totalPeriodExpense} isIncome={false} currencySymbol={currencySymbol} />
+            <BreakdownDisplay title="Income Breakdown" data={periodIncomeByCategory} total={totalPeriodIncome} isIncome={true} currencySymbol={currencySymbol} />
         </div>
     );
 };
+
 
 interface GoalsPageProps {
     entries: Entry[];
