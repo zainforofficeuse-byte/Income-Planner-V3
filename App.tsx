@@ -1,3 +1,4 @@
+
 // FIX: Corrected React import statement. The previous syntax was invalid.
 import React from 'react';
 import type { Entry, CurrencySymbols, Category, RecurringEntry, BudgetGoal } from './types';
@@ -584,23 +585,23 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
 
                         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                              <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Local Data Management</h3>
-                             <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Save your data to a file on your device, or load data from a previously saved file. This does not use Google Sync.</p>
+                             <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Export your transaction history to a CSV file, or import from a previously saved CSV. This only affects transaction data and does not use Google Sync.</p>
                              <div className="space-y-3">
                                 <button onClick={onExportData} className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V5a1 1 0 112 0v5.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                                    <span>Export Data to File</span>
+                                    <span>Export Transactions (CSV)</span>
                                 </button>
                                 <label
                                     htmlFor="import-data-file"
                                     className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition cursor-pointer"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 9.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 7.414V13a1 1 0 11-2 0V7.414L6.293 9.707z" clipRule="evenodd" /></svg>
-                                    <span>Import Data from File</span>
+                                    <span>Import Transactions (CSV)</span>
                                 </label>
                                 <input
                                     id="import-data-file"
                                     type="file"
-                                    accept=".json"
+                                    accept=".csv,text/csv"
                                     className="hidden"
                                     onChange={onImportFileSelect}
                                 />
@@ -1739,27 +1740,46 @@ const App: React.FC = () => {
 
     const currencySymbol = currencySymbols[selectedCurrency] ?? '$';
 
-    // FIX: Replaced `aistudiocdn` with `React`
     const handleExportData = React.useCallback(() => {
+        if (entries.length === 0) {
+            alert("No transaction data to export.");
+            return;
+        }
+
         try {
-            const dataToExport = {
-                entries,
-                selectedCurrency,
-                incomeCategories,
-                expenseCategories,
-                recurringEntries,
-                budgetGoals,
+            const header = ['id', 'amount', 'description', 'isIncome', 'date', 'time'];
+            
+            const escapeCsvField = (field: any): string => {
+                const stringField = String(field);
+                if (stringField.includes(',')) {
+                    return `"${stringField.replace(/"/g, '""')}"`;
+                }
+                return stringField;
             };
-            const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(dataToExport, null, 2))}`;
+
+            const rows = entries.map(e => 
+                [e.id, e.amount, escapeCsvField(e.description), e.isIncome, e.date, e.time].join(',')
+            );
+
+            const csvContent = [header.join(','), ...rows].join('\n');
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
-            link.href = jsonString;
-            link.download = `income-planner-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `income-planner-transactions-${new Date().toISOString().slice(0, 10)}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
         } catch (error) {
             console.error("Failed to export data", error);
             alert("An error occurred while exporting your data.");
         }
-    }, [entries, selectedCurrency, incomeCategories, expenseCategories, recurringEntries, budgetGoals]);
+    }, [entries]);
 
     const handleImportFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -1773,18 +1793,42 @@ const App: React.FC = () => {
                 return;
             }
             try {
-                const data = JSON.parse(text);
-                if (!data.entries || !data.selectedCurrency || !data.incomeCategories || !data.expenseCategories) {
-                    throw new Error("Invalid or corrupted data file.");
+                const rows = text.split('\n').filter(row => row.trim() !== '');
+                if (rows.length < 2) {
+                    throw new Error("CSV file is empty or contains only a header.");
                 }
-                if (window.confirm("Are you sure you want to import this data? This will overwrite all current local data.")) {
-                    setEntries(data.entries || []);
-                    setSelectedCurrency(data.selectedCurrency || 'USD');
-                    setIncomeCategories(data.incomeCategories || defaultIncomeCategories);
-                    setExpenseCategories(data.expenseCategories || defaultExpenseCategories);
-                    setRecurringEntries(data.recurringEntries || []);
-                    setBudgetGoals(data.budgetGoals || []);
-                    alert("Data imported successfully!");
+
+                const header = rows[0].trim().split(',');
+                if (header[0] !== 'id' || header[1] !== 'amount' || header[3] !== 'isIncome') {
+                    throw new Error("Invalid CSV file format. Please use a file exported from this app.");
+                }
+                
+                const importedEntries: Entry[] = rows.slice(1).map(row => {
+                    const values = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
+                    const cleanValues = values.map(v => v.startsWith('"') && v.endsWith('"') ? v.slice(1, -1).replace(/""/g, '"') : v);
+                    
+                    const entry: Entry = {
+                        id: Number(cleanValues[0]),
+                        amount: Number(cleanValues[1]),
+                        description: cleanValues[2] || '',
+                        isIncome: cleanValues[3] === 'true',
+                        date: cleanValues[4] || '',
+                        time: cleanValues[5] || '',
+                    };
+
+                    if (isNaN(entry.id) || isNaN(entry.amount) || !entry.date || !entry.time) {
+                        throw new Error(`Skipping invalid row: ${row}`);
+                    }
+                    return entry;
+                });
+
+                if (importedEntries.length === 0) {
+                    throw new Error("No valid transactions found in the file.");
+                }
+
+                if (window.confirm(`Are you sure you want to import ${importedEntries.length} transactions? This will REPLACE all current transaction data.`)) {
+                    setEntries(importedEntries);
+                    alert("Transactions imported successfully!");
                 }
             } catch (error) {
                 console.error("Failed to import data", error);
@@ -1794,9 +1838,8 @@ const App: React.FC = () => {
         reader.onerror = () => alert('Error reading the file.');
         reader.readAsText(file);
         
-        // Reset file input to allow selecting the same file again
         event.target.value = '';
-    }, [setEntries, setSelectedCurrency, setIncomeCategories, setExpenseCategories, setRecurringEntries, setBudgetGoals]);
+    }, [setEntries]);
 
     const renderPage = () => {
         switch (currentPage) {
