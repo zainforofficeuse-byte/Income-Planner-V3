@@ -1,10 +1,12 @@
 export interface Entry {
   id: number;
   amount: number;
+  category: string;
   description: string;
   isIncome: boolean;
   date: string;
   time: string;
+  account: string;
 }
 
 export interface CurrencySymbols {
@@ -19,6 +21,7 @@ export interface Category {
 export interface RecurringEntry {
   id: number;
   amount: number;
+  category: string;
   description: string;
   isIncome: boolean;
   frequency: 'daily' | 'weekly' | 'monthly';

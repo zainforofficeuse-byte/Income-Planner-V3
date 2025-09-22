@@ -1,4 +1,3 @@
-
 // FIX: Corrected React import statement. The previous syntax was invalid.
 import React from 'react';
 import type { Entry, CurrencySymbols, Category, RecurringEntry, BudgetGoal } from './types';
@@ -30,14 +29,127 @@ const defaultExpenseCategories: Category[] = [
     { name: 'Other', icon: '🛍️' },
 ];
 
+const defaultAccounts: string[] = ['Cash', 'Online'];
+
 
 // --- Helper Components ---
 
-const formatNumberInput = (input: string): string => {
-    if (!input) return '';
-    const digitsOnly = input.replace(/[^0-9]/g, '');
+const formatNumberInput = (string: string): string => {
+    if (!string) return '';
+    const digitsOnly = string.replace(/[^0-9]/g, '');
     if (!digitsOnly) return '';
     return parseInt(digitsOnly, 10).toLocaleString('en-US');
+};
+
+interface AccountManagerProps {
+    accounts: string[];
+    setAccounts: React.Dispatch<React.SetStateAction<string[]>>;
+    setEntries: React.Dispatch<React.SetStateAction<Entry[]>>;
+}
+
+const AccountManager: React.FC<AccountManagerProps> = ({ accounts, setAccounts, setEntries }) => {
+    const [newAccountName, setNewAccountName] = React.useState('');
+    const [editingAccount, setEditingAccount] = React.useState<{ index: number; name: string } | null>(null);
+
+    const handleAdd = () => {
+        const trimmedName = newAccountName.trim();
+        if (trimmedName && !accounts.some(acc => acc.toLowerCase() === trimmedName.toLowerCase())) {
+            setAccounts(prev => [...prev, trimmedName]);
+            setNewAccountName('');
+        } else if (trimmedName) {
+            alert('An account with this name already exists.');
+        }
+    };
+
+    const handleDelete = (indexToDelete: number) => {
+        if (accounts.length <= 1) {
+            alert("You must have at least one account.");
+            return;
+        }
+        const accountToDelete = accounts[indexToDelete];
+        if (window.confirm(`Are you sure you want to delete "${accountToDelete}"? Transactions in this account will be moved to "${accounts[0]}".`)) {
+            const fallbackAccount = accounts.find((_, i) => i !== indexToDelete) || '';
+            setEntries(prev => prev.map(e => e.account === accountToDelete ? { ...e, account: fallbackAccount } : e));
+            setAccounts(prev => prev.filter((_, i) => i !== indexToDelete));
+            if (editingAccount?.index === indexToDelete) {
+                setEditingAccount(null);
+            }
+        }
+    };
+    
+    const handleUpdate = () => {
+        if (editingAccount && editingAccount.name.trim()) {
+            const trimmedName = editingAccount.name.trim();
+            if (accounts.some((acc, i) => acc.toLowerCase() === trimmedName.toLowerCase() && i !== editingAccount.index)) {
+                 alert("An account with this name already exists.");
+                 return;
+            }
+            const oldName = accounts[editingAccount.index];
+            setEntries(prev => prev.map(e => e.account === oldName ? { ...e, account: trimmedName } : e));
+            setAccounts(prev => {
+                const updated = [...prev];
+                updated[editingAccount.index] = trimmedName;
+                return updated;
+            });
+            setEditingAccount(null);
+        }
+    };
+
+    return (
+        <div>
+            <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">Manage Accounts</h3>
+            <div className="flex gap-2 mb-4">
+                <input 
+                    type="text"
+                    value={newAccountName}
+                    onChange={(e) => setNewAccountName(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                    placeholder="Add new account"
+                    className="flex-grow bg-gray-100 border-2 border-gray-200 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                />
+                <button onClick={handleAdd} className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition disabled:opacity-50" disabled={!newAccountName.trim()}>Add</button>
+            </div>
+            <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
+                {accounts.map((account, index) => (
+                    <li key={`${account}-${index}`} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 group">
+                        {editingAccount?.index === index ? (
+                            <input 
+                                type="text"
+                                value={editingAccount.name}
+                                onChange={(e) => setEditingAccount({ ...editingAccount, name: e.target.value })}
+                                onKeyDown={(e) => e.key === 'Enter' && handleUpdate()}
+                                autoFocus
+                                className="flex-grow bg-white border-2 border-gray-300 rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 dark:bg-gray-600 dark:border-gray-500 dark:text-gray-100"
+                            />
+                        ) : (
+                             <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{account}</span>
+                        )}
+                        <div className="flex items-center gap-1 ml-2">
+                           {editingAccount?.index === index ? (
+                                <>
+                                    <button onClick={handleUpdate} className="p-1.5 text-green-600 hover:bg-green-100 dark:hover:bg-green-800 rounded-md">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                                    </button>
+                                     <button onClick={() => setEditingAccount(null)} className="p-1.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                                    </button>
+                                </>
+                           ) : (
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => setEditingAccount({ index, name: account })} className="p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-md">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                                    </button>
+                                    <button onClick={() => handleDelete(index)} className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-800 rounded-md">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                                    </button>
+                                </div>
+                           )}
+                        </div>
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
 };
 
 interface BudgetManagerProps {
@@ -165,20 +277,20 @@ interface RecurringManagerProps {
 }
 
 const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringEntries, setRecurringEntries, currencySymbol }) => {
-    // FIX: Replaced `aistudiocdn` with `React`
     const [formState, setFormState] = React.useState({
         amount: '',
+        category: '',
         description: '',
         isIncome: true,
         frequency: 'monthly' as 'daily' | 'weekly' | 'monthly',
         startDate: new Date().toISOString().split('T')[0],
     });
-    // FIX: Replaced `aistudiocdn` with `React`
     const [editingEntry, setEditingEntry] = React.useState<RecurringEntry | null>(null);
     
     const resetForm = () => {
         setFormState({
             amount: '',
+            category: '',
             description: '',
             isIncome: true,
             frequency: 'monthly',
@@ -190,7 +302,7 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringEntries, s
         const cleanAmount = formState.amount.replace(/,/g, '');
         const numericAmount = parseFloat(cleanAmount);
 
-        if (isNaN(numericAmount) || numericAmount <= 0 || !formState.description.trim() || !formState.startDate) {
+        if (isNaN(numericAmount) || numericAmount <= 0 || !formState.category.trim() || !formState.startDate) {
             alert('Please fill all fields with valid values.');
             return;
         }
@@ -198,6 +310,7 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringEntries, s
         const newRecurringEntry: RecurringEntry = {
             id: Date.now(),
             amount: numericAmount,
+            category: formState.category.trim(),
             description: formState.description.trim(),
             isIncome: formState.isIncome,
             frequency: formState.frequency,
@@ -223,12 +336,12 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringEntries, s
         const cleanAmount = String(editingEntry.amount).replace(/,/g, '');
         const numericAmount = parseFloat(cleanAmount);
 
-        if (isNaN(numericAmount) || numericAmount <= 0 || !editingEntry.description.trim()) {
-            alert('Please provide a valid amount and description.');
+        if (isNaN(numericAmount) || numericAmount <= 0 || !editingEntry.category.trim()) {
+            alert('Please provide a valid amount and category.');
             return;
         }
 
-        setRecurringEntries(prev => prev.map(e => e.id === editingEntry.id ? {...editingEntry, amount: numericAmount} : e));
+        setRecurringEntries(prev => prev.map(e => e.id === editingEntry.id ? {...editingEntry, amount: numericAmount, description: editingEntry.description.trim()} : e));
         setEditingEntry(null);
     };
     
@@ -257,7 +370,11 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringEntries, s
                         </div>
                     </div>
                     <div className="col-span-2">
-                         <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Description</label>
+                         <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Category</label>
+                         <input type="text" value={formState.category} onChange={e => setFormState({...formState, category: e.target.value})} className="w-full mt-1 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                    </div>
+                    <div className="col-span-2">
+                         <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Description (Optional)</label>
                          <input type="text" value={formState.description} onChange={e => setFormState({...formState, description: e.target.value})} className="w-full mt-1 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md py-1.5 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                     </div>
                     <div>
@@ -277,7 +394,7 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringEntries, s
                         <button onClick={() => setFormState({...formState, isIncome: false})} className={`py-1.5 rounded-md text-xs font-semibold transition ${!formState.isIncome ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-600'}`}>Expense</button>
                     </div>
                 </div>
-                <button onClick={handleAdd} className="w-full mt-3 px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition disabled:opacity-50" disabled={!formState.amount || !formState.description}>Add Recurring Entry</button>
+                <button onClick={handleAdd} className="w-full mt-3 px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg text-sm hover:bg-blue-600 transition disabled:opacity-50" disabled={!formState.amount || !formState.category}>Add Recurring Entry</button>
             </div>
             
              {/* List */}
@@ -286,7 +403,9 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringEntries, s
                     <li key={entry.id} className="p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 group">
                         {editingEntry?.id === entry.id ? (
                              <div className="space-y-2">
-                                <input type="text" value={editingEntry.description} onChange={e => setEditingEntry({...editingEntry, description: e.target.value})} autoFocus className="w-full bg-white dark:bg-gray-600 border-2 border-gray-300 rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                                <input type="text" value={editingEntry.category} onChange={e => setEditingEntry({...editingEntry, category: e.target.value})} autoFocus className="w-full bg-white dark:bg-gray-600 border-2 border-gray-300 rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                                <input type="text" value={editingEntry.description} placeholder="Description (Optional)" onChange={e => setEditingEntry({...editingEntry, description: e.target.value})} className="w-full bg-white dark:bg-gray-600 border-2 border-gray-300 rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+
                                 <div className="grid grid-cols-2 gap-2">
                                      <input type="text" inputMode="numeric" value={editingEntry.amount.toLocaleString()} onChange={handleEditAmountChange} className="w-full bg-white dark:bg-gray-600 border-2 border-gray-300 rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                                      <select value={editingEntry.frequency} onChange={e => setEditingEntry({...editingEntry, frequency: e.target.value as any})} className="w-full bg-white dark:bg-gray-600 border-2 border-gray-300 rounded-md py-1 px-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
@@ -311,8 +430,9 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringEntries, s
                         ) : (
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="font-semibold text-gray-800 dark:text-gray-100">{entry.description}</p>
-                                    <p className={`text-sm font-bold ${entry.isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                    <p className="font-semibold text-gray-800 dark:text-gray-100">{entry.category}</p>
+                                    {entry.description && <p className="text-xs text-gray-500 dark:text-gray-400">{entry.description}</p>}
+                                    <p className={`text-sm font-bold mt-1 ${entry.isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                                         {currencySymbol}{entry.amount.toLocaleString()} <span className="text-xs font-normal text-gray-500 dark:text-gray-400 capitalize">({entry.frequency})</span>
                                     </p>
                                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Next due: {new Date(entry.nextDueDate + 'T00:00:00').toLocaleDateString()}</p>
@@ -476,6 +596,9 @@ interface SettingsModalProps {
     setRecurringEntries: React.Dispatch<React.SetStateAction<RecurringEntry[]>>;
     budgetGoals: BudgetGoal[];
     setBudgetGoals: React.Dispatch<React.SetStateAction<BudgetGoal[]>>;
+    accounts: string[];
+    setAccounts: React.Dispatch<React.SetStateAction<string[]>>;
+    setEntries: React.Dispatch<React.SetStateAction<Entry[]>>;
     currencySymbol: string;
     onExportData: () => void;
     onImportFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -491,12 +614,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     isOpen, onClose, onSelectCurrency, selectedCurrency, 
     incomeCategories, setIncomeCategories, expenseCategories, setExpenseCategories,
     recurringEntries, setRecurringEntries, budgetGoals, setBudgetGoals, currencySymbol,
+    accounts, setAccounts, setEntries,
     onExportData, onImportFileSelect, onClearAllData,
     userProfile, onGoogleSignIn, onGoogleSignOut, syncStatus, isGoogleSyncConfigured,
 }) => {
     if (!isOpen) return null;
     // FIX: Replaced `aistudiocdn` with `React`
-    const [activeTab, setActiveTab] = React.useState<'currency' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync'>('currency');
+    const [activeTab, setActiveTab] = React.useState<'currency' | 'accounts' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync'>('currency');
 
     const SyncStatusIndicator: React.FC = () => {
         if (!userProfile) return null;
@@ -614,6 +738,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         </div>
                     </div>
                 );
+            case 'accounts':
+                return <AccountManager accounts={accounts} setAccounts={setAccounts} setEntries={setEntries} />;
             case 'income':
                 return <CategoryManager title="Income Categories" categories={incomeCategories} setCategories={setIncomeCategories} />;
             case 'expense':
@@ -651,7 +777,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
         }
     };
     
-    const TabButton: React.FC<{tab: 'currency' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync', children: React.ReactNode}> = ({tab, children}) => (
+    const TabButton: React.FC<{tab: 'currency' | 'accounts' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync', children: React.ReactNode}> = ({tab, children}) => (
         <button
             onClick={() => setActiveTab(tab)}
             className={`px-3 py-2 text-xs md:text-sm font-semibold rounded-t-lg transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'bg-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
@@ -668,6 +794,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
                  <div className="flex-shrink-0 px-2 border-b border-gray-200 dark:border-gray-700 flex justify-start overflow-x-auto">
                     <TabButton tab="currency">Currency</TabButton>
+                    <TabButton tab="accounts">Accounts</TabButton>
                     <TabButton tab="income">Income</TabButton>
                     <TabButton tab="expense">Expense</TabButton>
                     <TabButton tab="recurring">Recurring</TabButton>
@@ -695,22 +822,25 @@ interface EditEntryModalProps {
     entry: Entry | null;
     onSave: (entry: Entry) => void;
     currencySymbol: string;
+    accounts: string[];
 }
 
-const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry, onSave, currencySymbol }) => {
+const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry, onSave, currencySymbol, accounts }) => {
     // FIX: Replaced `aistudiocdn` with `React`
     const [amount, setAmount] = React.useState('');
-    // FIX: Replaced `aistudiocdn` with `React`
+    const [category, setCategory] = React.useState('');
     const [description, setDescription] = React.useState('');
-    // FIX: Replaced `aistudiocdn` with `React`
     const [isIncome, setIsIncome] = React.useState(true);
+    const [account, setAccount] = React.useState('');
 
     // FIX: Replaced `aistudiocdn` with `React`
     React.useEffect(() => {
         if (entry) {
             setAmount(entry.amount.toLocaleString('en-US'));
+            setCategory(entry.category);
             setDescription(entry.description);
             setIsIncome(entry.isIncome);
+            setAccount(entry.account);
         }
     }, [entry]);
 
@@ -724,16 +854,18 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
         const cleanAmount = amount.replace(/,/g, '');
         const numericAmount = parseFloat(cleanAmount);
 
-        if (isNaN(numericAmount) || numericAmount <= 0 || description.trim() === '') {
-            alert('Please enter a valid amount and description.');
+        if (isNaN(numericAmount) || numericAmount <= 0 || category.trim() === '') {
+            alert('Please enter a valid amount and category.');
             return;
         }
 
         onSave({
             ...entry,
             amount: numericAmount,
+            category: category.trim(),
             description: description.trim(),
             isIncome,
+            account,
         });
     };
 
@@ -757,13 +889,32 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
                         </div>
                     </div>
                      <div>
-                        <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Description</label>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Category</label>
+                         <input
+                            type="text"
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                            className="w-full mt-1 bg-gray-100 border-2 border-gray-200 rounded-lg py-2 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Description (Optional)</label>
                          <input
                             type="text"
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
                             className="w-full mt-1 bg-gray-100 border-2 border-gray-200 rounded-lg py-2 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                         />
+                    </div>
+                     <div>
+                        <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Account</label>
+                        <select
+                            value={account}
+                            onChange={(e) => setAccount(e.target.value)}
+                            className="w-full mt-1 bg-gray-100 border-2 border-gray-200 rounded-lg py-2 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                        >
+                            {accounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+                        </select>
                     </div>
                     <div>
                         <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Type</label>
@@ -806,17 +957,21 @@ const HistoryItem: React.FC<HistoryItemProps> = React.memo(({ entry, currencySym
   const bgColorClass = isIncome ? 'bg-green-100 dark:bg-green-900/50' : 'bg-red-100 dark:bg-red-900/50';
 
   return (
-    <div className="flex items-center py-3 relative group">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${bgColorClass} ${colorClass} font-bold text-lg flex-shrink-0`}>
+    <div className="flex items-start py-3 relative group">
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${bgColorClass} ${colorClass} font-bold text-lg flex-shrink-0 mt-1`}>
         {icon ? <span className="text-xl">{icon}</span> : sign}
       </div>
       <div className="ml-4 flex-grow">
-        <p className="font-semibold text-gray-800 dark:text-gray-100">{entry.description}</p>
-        <p className={`text-sm font-bold ${colorClass}`}>
-          {currencySymbol} {entry.amount.toLocaleString()}
-        </p>
+        <p className="font-semibold text-gray-800 dark:text-gray-100">{entry.category}</p>
+        {entry.description && <p className="text-xs text-gray-500 dark:text-gray-400">{entry.description}</p>}
+        <div className="flex items-center gap-2 mt-1">
+             <p className={`text-sm font-bold ${colorClass}`}>
+                {currencySymbol} {entry.amount.toLocaleString()}
+            </p>
+             <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full inline-block">{entry.account}</p>
+        </div>
       </div>
-      <div className="text-right text-xs text-gray-500 dark:text-gray-400 ml-2">
+      <div className="text-right text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
         <p>{entry.date}</p>
         <p>{entry.time}</p>
       </div>
@@ -837,6 +992,7 @@ const HistoryItem: React.FC<HistoryItemProps> = React.memo(({ entry, currencySym
 interface PlannerPageProps {
     entries: Entry[];
     amount: string;
+    category: string;
     description: string;
     error: string;
     currencySymbol: string;
@@ -844,7 +1000,11 @@ interface PlannerPageProps {
     suggestionList: string[];
     incomeCategories: Category[];
     expenseCategories: Category[];
+    accounts: string[];
+    selectedAccount: string;
+    setSelectedAccount: (account: string) => void;
     handleAmountChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    setCategory: (cat: string) => void;
     setDescription: (desc: string) => void;
     handleAddEntry: (isIncome: boolean) => void;
     onEditEntry: (entry: Entry) => void;
@@ -852,26 +1012,26 @@ interface PlannerPageProps {
 }
 
 const PlannerPage: React.FC<PlannerPageProps> = ({
-    entries, amount, description, error, currencySymbol, totalBalance, suggestionList,
-    incomeCategories, expenseCategories,
-    handleAmountChange, setDescription, handleAddEntry, onEditEntry, onDeleteEntry
+    entries, amount, category, description, error, currencySymbol, totalBalance, suggestionList,
+    incomeCategories, expenseCategories, accounts, selectedAccount, setSelectedAccount,
+    handleAmountChange, setCategory, setDescription, handleAddEntry, onEditEntry, onDeleteEntry
 }) => {
     // FIX: Replaced `aistudiocdn` with `React`
     const [showSuggestions, setShowSuggestions] = React.useState(false);
 
-    const findIcon = React.useCallback((description: string, isIncome: boolean): string | undefined => {
+    const findIcon = React.useCallback((categoryName: string, isIncome: boolean): string | undefined => {
         const list = isIncome ? incomeCategories : expenseCategories;
-        const category = list.find(cat => cat.name.toLowerCase() === description.toLowerCase());
+        const category = list.find(cat => cat.name.toLowerCase() === categoryName.toLowerCase());
         return category?.icon;
     }, [incomeCategories, expenseCategories]);
 
     const filteredSuggestions = React.useMemo(() => 
-        description 
+        category 
             ? suggestionList.filter(s => 
-                s.toLowerCase().includes(description.toLowerCase()) && s.toLowerCase() !== description.toLowerCase()
+                s.toLowerCase().includes(category.toLowerCase()) && s.toLowerCase() !== category.toLowerCase()
             ) 
             : suggestionList,
-    [suggestionList, description]);
+    [suggestionList, category]);
 
     return (
     <>
@@ -886,7 +1046,7 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
                             currencySymbol={currencySymbol} 
                             onEdit={() => onEditEntry(entry)}
                             onDelete={() => onDeleteEntry(entry.id)}
-                            icon={findIcon(entry.description, entry.isIncome)}
+                            icon={findIcon(entry.category, entry.isIncome)}
                         />
                      ))}
                    </div>
@@ -915,34 +1075,59 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
             </div>
 
             {amount && (
-                <div className="mt-4 animate-fade-in relative">
-                    <input
-                        type="text"
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        onFocus={() => setShowSuggestions(true)}
-                        onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                        placeholder="Description (e.g., Salary, Groceries)"
-                        className="w-full bg-gray-100 border-2 border-gray-200 rounded-xl py-3 px-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
-                        autoComplete="off"
-                    />
-                     {showSuggestions && filteredSuggestions.length > 0 && (
-                        <div className="absolute bottom-full mb-2 w-full bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 max-h-40 overflow-y-auto z-20 animate-fade-in-fast">
-                            {filteredSuggestions.map(s => (
-                                <div
-                                    key={s}
-                                    onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        setDescription(s);
-                                        setShowSuggestions(false);
-                                    }}
-                                    className="px-4 py-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                                >
-                                    {s}
-                                </div>
-                            ))}
+                <div className="mt-4 animate-fade-in space-y-3">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            value={category}
+                            onChange={(e) => setCategory(e.target.value)}
+                            onFocus={() => setShowSuggestions(true)}
+                            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                            placeholder="Category (e.g., Salary, Groceries)"
+                            className="w-full bg-gray-100 border-2 border-gray-200 rounded-xl py-3 px-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                            autoComplete="off"
+                        />
+                         {showSuggestions && filteredSuggestions.length > 0 && (
+                            <div className="absolute bottom-full mb-2 w-full bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 max-h-40 overflow-y-auto z-20 animate-fade-in-fast">
+                                {filteredSuggestions.map(s => (
+                                    <div
+                                        key={s}
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            setCategory(s);
+                                            setShowSuggestions(false);
+                                        }}
+                                        className="px-4 py-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
+                                    >
+                                        {s}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {category && (
+                        <div className="animate-fade-in-fast">
+                            <input
+                                type="text"
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Description (optional)"
+                                className="w-full bg-gray-100 border-2 border-gray-200 rounded-xl py-3 px-4 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                            />
                         </div>
                     )}
+
+                     <div>
+                        <select
+                            value={selectedAccount}
+                            onChange={(e) => setSelectedAccount(e.target.value)}
+                            className="w-full bg-gray-100 border-2 border-gray-200 rounded-xl py-3 px-4 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                            aria-label="Select Account"
+                        >
+                            {accounts.map(acc => <option key={acc} value={acc}>{acc}</option>)}
+                        </select>
+                    </div>
                 </div>
             )}
             
@@ -952,7 +1137,7 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
                 <button 
                     onClick={() => handleAddEntry(true)}
                     className="flex items-center justify-center gap-2 py-3 bg-green-500 text-white font-bold rounded-xl shadow-md hover:bg-green-600 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!amount || !description}
+                    disabled={!amount || !category}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414l-3-3z" clipRule="evenodd" /></svg>
                     <span>Income</span>
@@ -960,7 +1145,7 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
                 <button 
                     onClick={() => handleAddEntry(false)}
                     className="flex items-center justify-center gap-2 py-3 bg-red-500 text-white font-bold rounded-xl shadow-md hover:bg-red-600 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!amount || !description}
+                    disabled={!amount || !category}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-.707-4.707a1 1 0 001.414 1.414l3-3a1 1 0 00-1.414-1.414L11 10.586V7a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3z" clipRule="evenodd" /></svg>
                     <span>Expense</span>
@@ -1065,7 +1250,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
 
         const groupByCategory = (entryList: Entry[]) => 
             entryList.reduce((acc, entry) => {
-                acc[entry.description] = (acc[entry.description] || 0) + entry.amount;
+                acc[entry.category] = (acc[entry.category] || 0) + entry.amount;
                 return acc;
             }, {} as Record<string, number>);
 
@@ -1114,7 +1299,7 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
 
         const groupByCategory = (entryList: Entry[]) => 
             entryList.reduce((acc, entry) => {
-                acc[entry.description] = (acc[entry.description] || 0) + entry.amount;
+                acc[entry.category] = (acc[entry.category] || 0) + entry.amount;
                 return acc;
             }, {} as Record<string, number>);
 
@@ -1153,6 +1338,17 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
         return data;
     }, [entries]);
 
+    const accountBalances = React.useMemo(() => {
+        const balances: Record<string, number> = {};
+        for (const entry of entries) {
+            if (!balances[entry.account]) {
+                balances[entry.account] = 0;
+            }
+            balances[entry.account] += entry.isIncome ? entry.amount : -entry.amount;
+        }
+        return Object.entries(balances).sort((a, b) => b[1] - a[1]);
+    }, [entries]);
+
     return (
         <div className="space-y-6 overflow-y-auto pb-24">
             <div className="grid grid-cols-2 gap-4 text-center">
@@ -1164,6 +1360,24 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
                     <p className="text-sm font-medium text-red-800 dark:text-red-300">Total Expense</p>
                     <p className="text-xl font-bold text-red-700 dark:text-red-200">{currencySymbol} {totalExpense.toLocaleString()}</p>
                 </div>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
+                <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">Account Balances</h3>
+                {accountBalances.length > 0 ? (
+                    <ul className="space-y-2">
+                        {accountBalances.map(([account, balance]) => (
+                            <li key={account} className="flex justify-between items-center text-sm py-1">
+                                <span className="font-medium text-gray-700 dark:text-gray-300">{account}</span>
+                                <span className={`font-semibold ${balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                    {currencySymbol}{balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                     <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">No account data available.</p>
+                )}
             </div>
 
             <div className="bg-blue-100 dark:bg-blue-900/60 p-4 rounded-2xl">
@@ -1268,7 +1482,7 @@ const GoalsPage: React.FC<GoalsPageProps> = ({ entries, budgetGoals, currencySym
             let currentAmount = 0;
             if (goal.type === 'spending') {
                 currentAmount = currentMonthEntries
-                    .filter(e => !e.isIncome && e.description === goal.name)
+                    .filter(e => !e.isIncome && e.category === goal.name)
                     .reduce((sum, e) => sum + e.amount, 0);
             } else { // saving
                 currentAmount = income - expenses;
@@ -1335,19 +1549,49 @@ const GoalsPage: React.FC<GoalsPageProps> = ({ entries, budgetGoals, currencySym
 
 const App: React.FC = () => {
     // FIX: Replaced `aistudiocdn` with `React`
+    const [accounts, setAccounts] = React.useState<string[]>(() => {
+        try {
+            const saved = localStorage.getItem('incomePlanner-accounts');
+            const parsed = saved ? JSON.parse(saved) : defaultAccounts;
+            return Array.isArray(parsed) && parsed.length > 0 ? parsed : defaultAccounts;
+        } catch (error) {
+            console.error("Error reading accounts from localStorage", error);
+            return defaultAccounts;
+        }
+    });
+
     const [entries, setEntries] = React.useState<Entry[]>(() => {
         try {
             const saved = localStorage.getItem('incomePlanner-entries');
-            return saved ? JSON.parse(saved) : [];
+            let parsed = saved ? JSON.parse(saved) : [];
+
+            // Data migration for new schema with category/description fields
+            if (parsed.length > 0 && parsed[0].category === undefined) {
+                 parsed = parsed.map((e: any) => ({
+                    ...e,
+                    category: e.description, // The old 'description' becomes the 'category'
+                    description: '', // A new empty 'description' for notes
+                    account: e.account || accounts[0] || 'Cash', // Keep account migration logic
+                 }));
+            } else {
+                 // Handle just the account migration if category is already present
+                 parsed = parsed.map((e: any) => ({
+                    ...e,
+                    account: e.account || accounts[0] || 'Cash',
+                }));
+            }
+            return parsed;
         } catch (error) {
-            console.error("Error reading entries from localStorage", error);
+            console.error("Error reading or migrating entries from localStorage", error);
             return [];
         }
     });
     // FIX: Replaced `aistudiocdn` with `React`
     const [amount, setAmount] = React.useState<string>('');
-    // FIX: Replaced `aistudiocdn` with `React`
+    const [category, setCategory] = React.useState<string>('');
     const [description, setDescription] = React.useState<string>('');
+    // FIX: Replaced `aistudiocdn` with `React`
+    const [selectedAccount, setSelectedAccount] = React.useState<string>(accounts[0] || '');
     // FIX: Replaced `aistudiocdn` with `React`
     const [selectedCurrency, setSelectedCurrency] = React.useState<string>(() => {
         try {
@@ -1389,7 +1633,16 @@ const App: React.FC = () => {
     const [recurringEntries, setRecurringEntries] = React.useState<RecurringEntry[]>(() => {
         try {
             const saved = localStorage.getItem('incomePlanner-recurringEntries');
-            return saved ? JSON.parse(saved) : [];
+            let parsed = saved ? JSON.parse(saved) : [];
+             // Migration for recurring entries
+            if (parsed.length > 0 && parsed[0].category === undefined) {
+                parsed = parsed.map((e: any) => ({
+                    ...e,
+                    category: e.description,
+                    description: '',
+                }));
+            }
+            return parsed;
         } catch (error) {
             console.error("Error reading recurring entries from localStorage", error);
             return [];
@@ -1541,6 +1794,7 @@ const App: React.FC = () => {
                                 { userEnteredValue: { stringValue: 'Time' } },
                                 { userEnteredValue: { stringValue: 'Type' } },
                                 { userEnteredValue: { stringValue: 'Amount' } },
+                                { userEnteredValue: { stringValue: 'Category' } },
                                 { userEnteredValue: { stringValue: 'Description' } },
                             ]}]}]
                         }]
@@ -1565,12 +1819,12 @@ const App: React.FC = () => {
             }
 
             const rowsToAppend = newEntries.map(entry => [
-                entry.id, entry.date, entry.time, entry.isIncome ? 'Income' : 'Expense', entry.amount, entry.description
+                entry.id, entry.date, entry.time, entry.isIncome ? 'Income' : 'Expense', entry.amount, entry.category, entry.description
             ]);
             
             await window.gapi.client.sheets.spreadsheets.values.append({
                 spreadsheetId: sheetId,
-                range: 'Transactions!A:F',
+                range: 'Transactions!A:G',
                 valueInputOption: 'USER_ENTERED',
                 requestBody: { values: rowsToAppend },
             });
@@ -1603,6 +1857,13 @@ const App: React.FC = () => {
     React.useEffect(() => {
         localStorage.setItem('incomePlanner-entries', JSON.stringify(entries));
     }, [entries]);
+
+     React.useEffect(() => {
+        localStorage.setItem('incomePlanner-accounts', JSON.stringify(accounts));
+        if (!accounts.includes(selectedAccount)) {
+            setSelectedAccount(accounts[0] || '');
+        }
+    }, [accounts, selectedAccount]);
 
     // FIX: Replaced `aistudiocdn` with `React`
     React.useEffect(() => {
@@ -1641,13 +1902,15 @@ const App: React.FC = () => {
                 let updatedRecurring = { ...recurring };
     
                 while (nextDueDate <= today) {
-                    const newEntry = {
+                    const newEntry: Entry = {
                         id: Date.now() + Math.random(),
                         amount: recurring.amount,
+                        category: recurring.category,
                         description: recurring.description,
                         isIncome: recurring.isIncome,
                         date: nextDueDate.toLocaleDateString('en-CA'),
                         time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                        account: accounts[0] || 'Cash', // Assign a default account
                     };
                     newEntries.push(newEntry);
     
@@ -1699,11 +1962,11 @@ const App: React.FC = () => {
 
     // FIX: Replaced `aistudiocdn` with `React`
     const suggestionList = React.useMemo(() => {
-        const recentDescriptions = entries
-            .slice(-10)
+        const recentCategories = entries
+            .slice(-20)
             .reverse()
-            .map(e => e.description);
-        const uniqueRecent = [...new Set(recentDescriptions)];
+            .map(e => e.category);
+        const uniqueRecent = [...new Set(recentCategories)];
         const allCategories = [...incomeCategories.map(c => c.name), ...expenseCategories.map(c => c.name)];
         const combined = [...allCategories, ...uniqueRecent];
         return [...new Set(combined)];
@@ -1719,8 +1982,8 @@ const App: React.FC = () => {
         const cleanAmount = amount.replace(/,/g, '');
         const numericAmount = parseFloat(cleanAmount);
 
-        if (isNaN(numericAmount) || numericAmount <= 0 || description.trim() === '') {
-            setError('Please enter a valid amount and description.');
+        if (isNaN(numericAmount) || numericAmount <= 0 || category.trim() === '') {
+            setError('Please enter a valid amount and category.');
             setTimeout(() => setError(''), 3000);
             return;
         }
@@ -1729,18 +1992,21 @@ const App: React.FC = () => {
         const newEntry: Entry = {
             id: Date.now(),
             amount: numericAmount,
+            category: category.trim(),
             description: description.trim(),
             isIncome,
             date: now.toLocaleDateString('en-CA'), // YYYY-MM-DD
             time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+            account: selectedAccount,
         };
 
         setEntries(prevEntries => [...prevEntries, newEntry]);
         
         setAmount('');
+        setCategory('');
         setDescription('');
         setError('');
-    }, [amount, description]);
+    }, [amount, category, description, selectedAccount]);
 
     const handleSelectCurrency = (currencyCode: string) => {
         setSelectedCurrency(currencyCode);
@@ -1772,7 +2038,7 @@ const App: React.FC = () => {
         }
 
         try {
-            const header = ['id', 'amount', 'description', 'isIncome', 'date', 'time'];
+            const header = ['id', 'amount', 'category', 'description', 'isIncome', 'date', 'time', 'account'];
             
             const escapeCsvField = (field: any): string => {
                 const stringField = String(field);
@@ -1783,7 +2049,7 @@ const App: React.FC = () => {
             };
 
             const rows = entries.map(e => 
-                [e.id, e.amount, escapeCsvField(e.description), e.isIncome, e.date, e.time].join(',')
+                [e.id, e.amount, escapeCsvField(e.category), escapeCsvField(e.description), e.isIncome, e.date, e.time, escapeCsvField(e.account)].join(',')
             );
 
             const csvContent = [header.join(','), ...rows].join('\n');
@@ -1819,33 +2085,53 @@ const App: React.FC = () => {
             }
             try {
                 const rows = text.split('\n').filter(row => row.trim() !== '');
-                if (rows.length < 2) {
-                    throw new Error("CSV file is empty or contains only a header.");
-                }
+                if (rows.length < 1) throw new Error("CSV file is empty.");
+                
+                const headerRow = rows[0].trim();
+                const headers = headerRow.split(',');
+                
+                const isNewFormat = headers.includes('category') && headers.includes('description');
+                const isOldFormat = headers.includes('description') && !headers.includes('category');
 
-                const header = rows[0].trim().split(',');
-                if (header[0] !== 'id' || header[1] !== 'amount' || header[3] !== 'isIncome') {
+                if (!isNewFormat && !isOldFormat) {
                     throw new Error("Invalid CSV file format. Please use a file exported from this app.");
                 }
-                
+
                 const importedEntries: Entry[] = rows.slice(1).map(row => {
                     const values = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
                     const cleanValues = values.map(v => v.startsWith('"') && v.endsWith('"') ? v.slice(1, -1).replace(/""/g, '"') : v);
                     
-                    const entry: Entry = {
-                        id: Number(cleanValues[0]),
-                        amount: Number(cleanValues[1]),
-                        description: cleanValues[2] || '',
-                        isIncome: cleanValues[3] === 'true',
-                        date: cleanValues[4] || '',
-                        time: cleanValues[5] || '',
-                    };
+                    let entry: Entry;
+                    if (isNewFormat) {
+                        entry = {
+                            id: Number(cleanValues[0]),
+                            amount: Number(cleanValues[1]),
+                            category: cleanValues[2] || '',
+                            description: cleanValues[3] || '',
+                            isIncome: cleanValues[4] === 'true',
+                            date: cleanValues[5] || '',
+                            time: cleanValues[6] || '',
+                            account: cleanValues[7] || accounts[0] || 'Cash',
+                        };
+                    } else { // Old format
+                        entry = {
+                            id: Number(cleanValues[0]),
+                            amount: Number(cleanValues[1]),
+                            category: cleanValues[2] || '',
+                            description: '',
+                            isIncome: cleanValues[3] === 'true',
+                            date: cleanValues[4] || '',
+                            time: cleanValues[5] || '',
+                            account: cleanValues[6] || accounts[0] || 'Cash',
+                        };
+                    }
 
                     if (isNaN(entry.id) || isNaN(entry.amount) || !entry.date || !entry.time) {
-                        throw new Error(`Skipping invalid row: ${row}`);
+                        console.warn(`Skipping invalid row: ${row}`);
+                        return null;
                     }
                     return entry;
-                });
+                }).filter((e): e is Entry => e !== null);
 
                 if (importedEntries.length === 0) {
                     throw new Error("No valid transactions found in the file.");
@@ -1864,23 +2150,24 @@ const App: React.FC = () => {
         reader.readAsText(file);
         
         event.target.value = '';
-    }, [setEntries]);
+    }, [setEntries, accounts]);
 
     const handleClearAllData = () => {
-        if (window.confirm("Are you absolutely sure you want to delete all local data? This includes all transactions, categories, goals, and recurring entries. This action cannot be undone.")) {
+        if (window.confirm("Are you absolutely sure you want to delete all local data? This includes all transactions, accounts, categories, goals, and recurring entries. This action cannot be undone.")) {
             setEntries([]);
+            setAccounts(defaultAccounts);
             setIncomeCategories(defaultIncomeCategories);
             setExpenseCategories(defaultExpenseCategories);
             setRecurringEntries([]);
             setBudgetGoals([]);
             setSpreadsheetId(null);
 
-            localStorage.removeItem('incomePlanner-entries');
-            localStorage.removeItem('incomePlanner-incomeCategories');
-            localStorage.removeItem('incomePlanner-expenseCategories');
-            localStorage.removeItem('incomePlanner-recurringEntries');
-            localStorage.removeItem('incomePlanner-budgetGoals');
-            localStorage.removeItem('incomePlanner-spreadsheetId');
+            // Clear all relevant keys from localStorage
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('incomePlanner-')) {
+                    localStorage.removeItem(key);
+                }
+            });
 
             alert("All local data has been cleared.");
             setIsSettingsOpen(false);
@@ -1893,6 +2180,7 @@ const App: React.FC = () => {
                 return <PlannerPage
                     entries={entries}
                     amount={amount}
+                    category={category}
                     description={description}
                     error={error}
                     currencySymbol={currencySymbol}
@@ -1900,7 +2188,11 @@ const App: React.FC = () => {
                     suggestionList={suggestionList}
                     incomeCategories={incomeCategories}
                     expenseCategories={expenseCategories}
+                    accounts={accounts}
+                    selectedAccount={selectedAccount}
+                    setSelectedAccount={setSelectedAccount}
                     handleAmountChange={handleAmountChange}
+                    setCategory={setCategory}
                     setDescription={setDescription}
                     handleAddEntry={handleAddEntry}
                     onEditEntry={handleOpenEditModal}
@@ -1975,6 +2267,9 @@ const App: React.FC = () => {
                 setRecurringEntries={setRecurringEntries}
                 budgetGoals={budgetGoals}
                 setBudgetGoals={setBudgetGoals}
+                accounts={accounts}
+                setAccounts={setAccounts}
+                setEntries={setEntries}
                 currencySymbol={currencySymbol}
                 onExportData={handleExportData}
                 onImportFileSelect={handleImportFileChange}
@@ -1992,6 +2287,7 @@ const App: React.FC = () => {
                 entry={entryToEdit}
                 onSave={handleUpdateEntry}
                 currencySymbol={currencySymbol}
+                accounts={accounts}
             />
 
             <style>{`
