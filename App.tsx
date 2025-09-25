@@ -1219,8 +1219,32 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
     incomeCategories, expenseCategories, accounts, selectedAccount, setSelectedAccount,
     handleAmountChange, setCategory, setDescription, handleAddEntry, onEditEntry, onDeleteEntry
 }) => {
-    // FIX: Replaced `aistudiocdn` with `React`
     const [showSuggestions, setShowSuggestions] = React.useState(false);
+    const [historyDaysToShow, setHistoryDaysToShow] = React.useState(7);
+
+    const displayedEntries = React.useMemo(() => {
+        const today = new Date();
+        const startDate = new Date();
+        startDate.setDate(today.getDate() - (historyDaysToShow - 1));
+        startDate.setHours(0, 0, 0, 0);
+        const startDateStr = startDate.toLocaleDateString('en-CA');
+
+        return entries
+            .filter(entry => entry.date >= startDateStr)
+            .sort((a, b) => {
+                const dateA = new Date(`${a.date}T${a.time || '00:00'}`);
+                const dateB = new Date(`${b.date}T${b.time || '00:00'}`);
+                return dateB.getTime() - dateA.getTime();
+            });
+    }, [entries, historyDaysToShow]);
+
+    const hasMoreEntries = React.useMemo(() => {
+        return displayedEntries.length < entries.length;
+    }, [displayedEntries.length, entries.length]);
+
+    const handleShowMore = () => {
+        setHistoryDaysToShow(prevDays => prevDays + 15);
+    };
 
     const findIcon = React.useCallback((categoryName: string, isIncome: boolean): string | undefined => {
         const list = isIncome ? incomeCategories : expenseCategories;
@@ -1242,7 +1266,7 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
             {entries.length > 0 ? (
                 <div className="flex-grow bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 mb-4 overflow-hidden flex flex-col">
                    <div className="overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 pr-2">
-                     {entries.map(entry => (
+                     {displayedEntries.map(entry => (
                         <HistoryItem 
                             key={entry.id} 
                             entry={entry} 
@@ -1252,6 +1276,24 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
                             icon={findIcon(entry.category, entry.isIncome)}
                         />
                      ))}
+
+                     {displayedEntries.length === 0 && (
+                        <div className="text-center py-10 text-gray-500 dark:text-gray-400">
+                            <p>No transactions in the last {historyDaysToShow} days.</p>
+                            {hasMoreEntries && <p className="text-sm mt-1">Click "Load More" to see older entries.</p>}
+                        </div>
+                     )}
+
+                     {hasMoreEntries && (
+                        <div className="py-4 text-center">
+                            <button 
+                                onClick={handleShowMore}
+                                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                            >
+                                Load More (+15 days)
+                            </button>
+                        </div>
+                     )}
                    </div>
                 </div>
             ) : (
