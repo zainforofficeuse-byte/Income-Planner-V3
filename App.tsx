@@ -1005,6 +1005,90 @@ const ClipboardImportModal: React.FC<ClipboardImportModalProps> = ({ isOpen, onC
     );
 };
 
+interface NetCategoryDetailModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    categoryName: string;
+    entries: Entry[];
+    currencySymbol: string;
+}
+
+const NetCategoryDetailModal: React.FC<NetCategoryDetailModalProps> = ({ isOpen, onClose, categoryName, entries, currencySymbol }) => {
+    if (!isOpen) return null;
+
+    const { totalIncome, totalExpense, netTotal } = React.useMemo(() => {
+        return entries.reduce((acc, entry) => {
+            if (entry.isIncome) {
+                acc.totalIncome += entry.amount;
+            } else {
+                acc.totalExpense += entry.amount;
+            }
+            acc.netTotal = acc.totalIncome - acc.totalExpense;
+            return acc;
+        }, { totalIncome: 0, totalExpense: 0, netTotal: 0 });
+    }, [entries]);
+
+    const sortedEntries = React.useMemo(() => 
+        [...entries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [entries]);
+
+    const netColorClass = netTotal >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-end z-50" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="net-category-detail-title">
+            <div className="bg-gray-100 dark:bg-gray-900 w-full max-w-md rounded-t-2xl h-[85vh] flex flex-col animate-slide-up" onClick={(e) => e.stopPropagation()}>
+                <header className={`flex-shrink-0 p-4 border-b-2 border-gray-300 dark:border-gray-600 flex items-center justify-between`}>
+                     <h2 id="net-category-detail-title" className="text-xl font-bold text-gray-800 dark:text-gray-100">{categoryName} Summary</h2>
+                     <button onClick={onClose} className="p-1.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full" aria-label="Close">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                     </button>
+                </header>
+                <div className="flex-shrink-0 p-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Income</p>
+                            <p className="text-lg font-bold text-green-600 dark:text-green-400">{currencySymbol}{totalIncome.toLocaleString()}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Expense</p>
+                            <p className="text-lg font-bold text-red-600 dark:text-red-400">{currencySymbol}{totalExpense.toLocaleString()}</p>
+                        </div>
+                         <div>
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Net Total</p>
+                            <p className={`text-lg font-bold ${netColorClass}`}>{currencySymbol}{netTotal.toLocaleString()}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex-grow p-4 overflow-y-auto bg-white dark:bg-gray-800">
+                    <h3 className="text-md font-semibold text-gray-700 dark:text-gray-300 mb-2">Transactions</h3>
+                    <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {sortedEntries.length > 0 ? sortedEntries.map(entry => {
+                            const colorClass = entry.isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+                            return (
+                             <li key={entry.id} className="py-3">
+                                <div className="flex justify-between items-start gap-4">
+                                    <div className="flex-grow">
+                                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{entry.description || 'No description'}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(entry.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full inline-block">{entry.account}</p>
+                                        </div>
+                                    </div>
+                                    <p className={`font-semibold shrink-0 ${colorClass}`}>{entry.isIncome ? '+' : '-'} {currencySymbol}{entry.amount.toLocaleString()}</p>
+                                </div>
+                             </li>
+                            );
+                        }) : (
+                            <li className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">No transactions found for this category in the selected period.</li>
+                        )}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 interface CategoryDetailModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -1371,6 +1455,63 @@ const BreakdownDisplay: React.FC<BreakdownDisplayProps> = ({ title, data, total,
     );
 };
 
+interface NetCategorySummaryProps {
+    data: { name: string; net: number }[];
+    currencySymbol: string;
+    onCategoryClick?: (categoryName: string) => void;
+}
+
+const NetCategorySummary: React.FC<NetCategorySummaryProps> = ({ data, currencySymbol, onCategoryClick }) => {
+    const CustomTooltip = ({ active, payload }: any) => {
+        if (active && payload && payload.length) {
+            const { name, net } = payload[0].payload;
+            const colorClass = net >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+            return (
+                <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-2.5 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{name}</p>
+                    <p className={`text-xs font-bold ${colorClass}`}>
+                        Net: {currencySymbol} {net.toLocaleString()}
+                    </p>
+                </div>
+            );
+        }
+        return null;
+    };
+
+    return (
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
+            <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Net Category Summary</h3>
+            {data.length > 0 ? (
+                <div style={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer>
+                        <BarChart
+                            data={data}
+                            layout="vertical"
+                            margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
+                            <XAxis type="number" tick={{ fill: 'currentColor', fontSize: 12 }} />
+                            <YAxis dataKey="name" type="category" width={80} tick={{ fill: 'currentColor', fontSize: 12, width: 70 }} />
+                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(209, 213, 219, 0.3)' }} />
+                            {/* FIX: Moved onClick handler from BarChart to Bar to resolve typing issues with the event payload. */}
+                            <Bar 
+                                dataKey="net" 
+                                style={{ cursor: onCategoryClick ? 'pointer' : 'default' }}
+                                onClick={onCategoryClick ? (payload) => onCategoryClick(payload.name) : undefined}
+                            >
+                                {data.map((entry) => (
+                                    <Cell key={`cell-${entry.name}`} fill={entry.net >= 0 ? '#22c55e' : '#ef4444'} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No category data for this period.</p>
+            )}
+        </div>
+    );
+};
 
 interface DashboardPageProps {
     entries: Entry[];
@@ -1399,6 +1540,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
     });
     const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
     const [detailData, setDetailData] = React.useState<{ category: string; entries: Entry[]; isIncome: boolean } | null>(null);
+    const [isNetDetailModalOpen, setIsNetDetailModalOpen] = React.useState(false);
+    const [netDetailCategory, setNetDetailCategory] = React.useState<string | null>(null);
     
     const { filteredEntries, dateRange } = React.useMemo(() => {
         const today = new Date();
@@ -1536,6 +1679,29 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
         return { periodIncomeByCategory: sortedByCategory, totalPeriodIncome: total };
     }, [filteredEntries]);
 
+    const netCategoryData = React.useMemo(() => {
+        const categorySummary: Record<string, { income: number; expense: number }> = {};
+    
+        for (const entry of filteredEntries) {
+            if (!categorySummary[entry.category]) {
+                categorySummary[entry.category] = { income: 0, expense: 0 };
+            }
+            if (entry.isIncome) {
+                categorySummary[entry.category].income += entry.amount;
+            } else {
+                categorySummary[entry.category].expense += entry.amount;
+            }
+        }
+    
+        return Object.entries(categorySummary)
+            .map(([name, { income, expense }]) => ({
+                name,
+                net: income - expense,
+            }))
+            .filter(item => item.net !== 0)
+            .sort((a, b) => Math.abs(b.net) - Math.abs(a.net)); // Sort by absolute value to see biggest impacts first
+    }, [filteredEntries]);
+
     const accountBalances = React.useMemo(() => {
         const endDateStr = dateRange.end.toLocaleDateString('en-CA');
         const entriesUpToPeriodEnd = entries.filter(e => e.date <= endDateStr);
@@ -1558,6 +1724,11 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
         });
         setIsDetailModalOpen(true);
     }, [filteredEntries]);
+
+    const handleNetCategoryClick = React.useCallback((categoryName: string) => {
+        setNetDetailCategory(categoryName);
+        setIsNetDetailModalOpen(true);
+    }, []);
 
 
     return (
@@ -1590,6 +1761,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
                     <p className="text-xl font-bold text-red-700 dark:text-red-200">{currencySymbol} {totalExpense.toLocaleString()}</p>
                 </div>
             </div>
+
+            <NetCategorySummary data={netCategoryData} currencySymbol={currencySymbol} onCategoryClick={handleNetCategoryClick} />
 
             <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
                 <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">Account Balances <span className="text-xs font-normal text-gray-400">(as of {new Date(dateRange.end).toLocaleDateString()})</span></h3>
@@ -1678,6 +1851,16 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
                     entries={detailData.entries}
                     currencySymbol={currencySymbol}
                     isIncome={detailData.isIncome}
+                />
+            )}
+
+            {isNetDetailModalOpen && netDetailCategory && (
+                <NetCategoryDetailModal
+                    isOpen={isNetDetailModalOpen}
+                    onClose={() => setIsNetDetailModalOpen(false)}
+                    categoryName={netDetailCategory}
+                    entries={filteredEntries.filter(e => e.category === netDetailCategory)}
+                    currencySymbol={currencySymbol}
                 />
             )}
         </div>
