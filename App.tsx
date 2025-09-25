@@ -1002,6 +1002,61 @@ const ClipboardImportModal: React.FC<ClipboardImportModalProps> = ({ isOpen, onC
     );
 };
 
+interface CategoryDetailModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    categoryName: string;
+    entries: Entry[];
+    currencySymbol: string;
+    isIncome: boolean;
+}
+
+const CategoryDetailModal: React.FC<CategoryDetailModalProps> = ({ isOpen, onClose, categoryName, entries, currencySymbol, isIncome }) => {
+    if (!isOpen) return null;
+
+    const total = entries.reduce((sum, e) => sum + e.amount, 0);
+    const colorClass = isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+    const headerColorClass = isIncome ? 'border-green-500/50' : 'border-red-500/50';
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-end z-50" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="category-detail-title">
+            <div className="bg-gray-100 dark:bg-gray-900 w-full max-w-md rounded-t-2xl h-[75vh] flex flex-col animate-slide-up" onClick={(e) => e.stopPropagation()}>
+                <header className={`flex-shrink-0 p-4 border-b-2 ${headerColorClass} flex items-center justify-between`}>
+                     <h2 id="category-detail-title" className="text-xl font-bold text-gray-800 dark:text-gray-100">{categoryName} Transactions</h2>
+                     <button onClick={onClose} className="p-1.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full" aria-label="Close">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                     </button>
+                </header>
+                <div className="flex-grow p-4 overflow-y-auto bg-white dark:bg-gray-800">
+                    <div className="flex justify-between items-baseline mb-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">Total for Period:</span>
+                        <span className={`text-lg font-bold ${colorClass}`}>{currencySymbol}{total.toLocaleString()}</span>
+                    </div>
+                    <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {entries.length > 0 ? entries
+                            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) // Sort by most recent
+                            .map(entry => (
+                             <li key={entry.id} className="py-3">
+                                <div className="flex justify-between items-start gap-4">
+                                    <div className="flex-grow">
+                                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{entry.description || 'No description'}</p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(entry.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full inline-block">{entry.account}</p>
+                                        </div>
+                                    </div>
+                                    <p className={`font-semibold shrink-0 ${colorClass}`}>{currencySymbol}{entry.amount.toLocaleString()}</p>
+                                </div>
+                             </li>
+                        )) : (
+                            <li className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">No transactions found for this category in the selected period.</li>
+                        )}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 interface HistoryItemProps {
   entry: Entry;
@@ -1228,6 +1283,7 @@ interface BreakdownDisplayProps {
     total: number;
     isIncome: boolean;
     currencySymbol: string;
+    onCategoryClick?: (category: string) => void;
 }
 
 const PIE_COLORS = {
@@ -1235,7 +1291,7 @@ const PIE_COLORS = {
     expense: ['#ef4444', '#f87171', '#fca5a5', '#fecaca', '#fee2e2'],
 };
 
-const BreakdownDisplay: React.FC<BreakdownDisplayProps> = ({ title, data, total, isIncome, currencySymbol }) => {
+const BreakdownDisplay: React.FC<BreakdownDisplayProps> = ({ title, data, total, isIncome, currencySymbol, onCategoryClick }) => {
     // FIX: Replaced `aistudiocdn` with `React`
     const chartData = React.useMemo(() => data.map(([name, value]) => ({ name, value })), [data]);
     const colors = isIncome ? PIE_COLORS.income : PIE_COLORS.expense;
@@ -1264,7 +1320,18 @@ const BreakdownDisplay: React.FC<BreakdownDisplayProps> = ({ title, data, total,
                     <div style={{ width: '100%', height: 200 }}>
                         <ResponsiveContainer>
                             <PieChart>
-                                <Pie data={chartData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" nameKey="name" labelLine={false}>
+                                <Pie 
+                                    data={chartData} 
+                                    cx="50%" 
+                                    cy="50%" 
+                                    outerRadius={80} 
+                                    fill="#8884d8" 
+                                    dataKey="value" 
+                                    nameKey="name" 
+                                    labelLine={false}
+                                    onClick={onCategoryClick ? (e) => onCategoryClick(e.name) : undefined}
+                                    style={{ cursor: onCategoryClick ? 'pointer' : 'default' }}
+                                >
                                     {chartData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={colors[index % colors.length]} className="focus:outline-none" />
                                     ))}
@@ -1273,9 +1340,16 @@ const BreakdownDisplay: React.FC<BreakdownDisplayProps> = ({ title, data, total,
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
-                    <ul className="space-y-3 mt-4">
+                    <ul className="space-y-1 mt-4">
                         {data.map(([category, amount]) => (
-                            <li key={category}>
+                            <li 
+                                key={category}
+                                onClick={onCategoryClick ? () => onCategoryClick(category) : undefined}
+                                className={onCategoryClick ? 'cursor-pointer rounded-lg p-2 -m-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors' : ''}
+                                role={onCategoryClick ? 'button' : undefined}
+                                tabIndex={onCategoryClick ? 0 : -1}
+                                onKeyDown={onCategoryClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onCategoryClick(category) : undefined}
+                            >
                                 <div className="flex justify-between items-center text-sm mb-1">
                                     <span className="font-medium text-gray-700 dark:text-gray-300">{category}</span>
                                     <span className="font-semibold text-gray-800 dark:text-gray-200">{currencySymbol} {amount.toLocaleString()}</span>
@@ -1320,6 +1394,8 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
         date.setDate(date.getDate() - 6);
         return date.toLocaleDateString('en-CA');
     });
+    const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
+    const [detailData, setDetailData] = React.useState<{ category: string; entries: Entry[]; isIncome: boolean } | null>(null);
     
     const { filteredEntries, dateRange } = React.useMemo(() => {
         const today = new Date();
@@ -1468,6 +1544,18 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
         return Object.entries(balances).sort((a, b) => b[1] - a[1]);
     }, [entries, dateRange]);
 
+    const handleCategoryClick = React.useCallback((categoryName: string, isIncome: boolean) => {
+        const entriesForCategory = filteredEntries.filter(
+            e => e.category === categoryName && e.isIncome === isIncome
+        );
+        setDetailData({
+            category: categoryName,
+            entries: entriesForCategory,
+            isIncome: isIncome,
+        });
+        setIsDetailModalOpen(true);
+    }, [filteredEntries]);
+
 
     return (
         <div className="space-y-6 overflow-y-auto pb-24">
@@ -1562,8 +1650,33 @@ const DashboardPage: React.FC<DashboardPageProps> = ({ entries, currencySymbol }
                 )}
             </div>
             
-            <BreakdownDisplay title="Spending Breakdown" data={periodExpenseByCategory} total={totalPeriodExpense} isIncome={false} currencySymbol={currencySymbol} />
-            <BreakdownDisplay title="Income Breakdown" data={periodIncomeByCategory} total={totalPeriodIncome} isIncome={true} currencySymbol={currencySymbol} />
+            <BreakdownDisplay 
+                title="Spending Breakdown" 
+                data={periodExpenseByCategory} 
+                total={totalPeriodExpense} 
+                isIncome={false} 
+                currencySymbol={currencySymbol}
+                onCategoryClick={(category) => handleCategoryClick(category, false)}
+            />
+            <BreakdownDisplay 
+                title="Income Breakdown" 
+                data={periodIncomeByCategory} 
+                total={totalPeriodIncome} 
+                isIncome={true} 
+                currencySymbol={currencySymbol} 
+                onCategoryClick={(category) => handleCategoryClick(category, true)}
+            />
+
+            {isDetailModalOpen && detailData && (
+                <CategoryDetailModal
+                    isOpen={isDetailModalOpen}
+                    onClose={() => setIsDetailModalOpen(false)}
+                    categoryName={detailData.category}
+                    entries={detailData.entries}
+                    currencySymbol={currencySymbol}
+                    isIncome={detailData.isIncome}
+                />
+            )}
         </div>
     );
 };
