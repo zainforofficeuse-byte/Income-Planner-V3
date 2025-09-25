@@ -700,7 +700,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                                     )}
                                 </div>
                                 <div className="text-center mt-4">
-                                    <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">Privacy Policy</a>
+                                    <a href="/privacy-policy.html" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">Privacy Policy</a>
                                 </div>
                             </>
                         ) : (
