@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import PrivacyPolicyPage from './PrivacyPolicyPage';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -10,19 +9,10 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 
-// Simple router to handle the privacy policy page separately.
-const path = window.location.pathname;
-
-if (path === '/privacy-policy') {
-  root.render(
-    <React.StrictMode>
-      <PrivacyPolicyPage />
-    </React.StrictMode>
-  );
-} else {
-  root.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
-}
+// The main app is always rendered. 
+// The privacy policy is now a separate static HTML file.
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
