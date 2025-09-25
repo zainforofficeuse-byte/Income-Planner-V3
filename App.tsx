@@ -1234,7 +1234,7 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
             .sort((a, b) => {
                 const dateA = new Date(`${a.date}T${a.time || '00:00'}`);
                 const dateB = new Date(`${b.date}T${b.time || '00:00'}`);
-                return dateB.getTime() - dateA.getTime();
+                return dateA.getTime() - dateB.getTime();
             });
     }, [entries, historyDaysToShow]);
 
