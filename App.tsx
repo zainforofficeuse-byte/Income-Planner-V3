@@ -608,6 +608,9 @@ interface SettingsModalProps {
     onGoogleSignOut: () => void;
     syncStatus: 'idle' | 'syncing' | 'synced' | 'error';
     isGoogleSyncConfigured: boolean;
+    onCopyData: () => void;
+    copyStatus: 'idle' | 'copied';
+    onOpenClipboardImport: () => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
@@ -617,6 +620,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     accounts, setAccounts, setEntries,
     onExportData, onImportFileSelect, onClearAllData,
     userProfile, onGoogleSignIn, onGoogleSignOut, syncStatus, isGoogleSyncConfigured,
+    onCopyData, copyStatus, onOpenClipboardImport
 }) => {
     if (!isOpen) return null;
     // FIX: Replaced `aistudiocdn` with `React`
@@ -712,21 +716,36 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                              <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Local Data Management</h3>
                              <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Manage your locally stored app data. This does not affect any data synced with Google.</p>
                              <div className="space-y-3">
+                                <button onClick={onCopyData} disabled={copyStatus === 'copied'} className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50 disabled:bg-green-100 dark:disabled:bg-green-900/50 disabled:text-green-700 dark:disabled:text-green-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M7 9a2 2 0 012-2h6a2 2 0 012 2v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9z" /><path d="M5 3a2 2 0 00-2 2v6a2 2 0 002 2V5h6a2 2 0 00-2-2H5z" /></svg>
+                                    <span>{copyStatus === 'copied' ? 'Copied to Clipboard!' : 'Copy All Data'}</span>
+                                </button>
+                                <button onClick={onOpenClipboardImport} className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" /><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" /></svg>
+                                    <span>Import from Clipboard</span>
+                                </button>
+                                
+                                <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                                    <hr className="flex-grow border-t border-gray-200 dark:border-gray-700"/>
+                                    <span>OR</span>
+                                    <hr className="flex-grow border-t border-gray-200 dark:border-gray-700"/>
+                                </div>
+
                                 <button onClick={onExportData} className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition">
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V5a1 1 0 112 0v5.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                                    <span>Export Transactions (CSV)</span>
+                                    <span>Export to File (JSON)</span>
                                 </button>
                                 <label
                                     htmlFor="import-data-file"
                                     className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition cursor-pointer"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 9.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 7.414V13a1 1 0 11-2 0V7.414L6.293 9.707z" clipRule="evenodd" /></svg>
-                                    <span>Import Transactions (CSV)</span>
+                                    <span>Import from File (JSON)</span>
                                 </label>
                                 <input
                                     id="import-data-file"
                                     type="file"
-                                    accept=".csv,text/csv"
+                                    accept=".json,application/json"
                                     className="hidden"
                                     onChange={onImportFileSelect}
                                 />
@@ -937,6 +956,48 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
                 }
                 .animate-fade-in-scale { animation: fade-in-scale 0.2s ease-out forwards; }
             `}</style>
+        </div>
+    );
+};
+
+interface ClipboardImportModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onImport: (data: string) => void;
+}
+
+const ClipboardImportModal: React.FC<ClipboardImportModalProps> = ({ isOpen, onClose, onImport }) => {
+    const [pastedData, setPastedData] = React.useState('');
+
+    if (!isOpen) return null;
+
+    const handleImportClick = () => {
+        if (!pastedData.trim()) {
+            alert('Please paste your backup data into the text area first.');
+            return;
+        }
+        onImport(pastedData);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-[60]" onClick={onClose}>
+            <div className="bg-white dark:bg-gray-800 w-full max-w-sm rounded-2xl p-6 flex flex-col animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">Import from Clipboard</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Paste the JSON data you previously copied into the box below. This will replace all current data.
+                </p>
+                <textarea
+                    value={pastedData}
+                    onChange={(e) => setPastedData(e.target.value)}
+                    placeholder="Paste your JSON backup data here..."
+                    className="w-full h-40 bg-gray-100 border-2 border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 font-mono resize-none"
+                    aria-label="Paste JSON data here"
+                />
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                    <button onClick={onClose} className="py-2.5 bg-gray-200 text-gray-800 font-bold rounded-lg hover:bg-gray-300 transition dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500">Cancel</button>
+                    <button onClick={handleImportClick} className="py-2.5 bg-blue-500 text-white font-bold rounded-lg hover:bg-blue-600 transition">Import Data</button>
+                </div>
+            </div>
         </div>
     );
 };
@@ -1721,6 +1782,9 @@ const App: React.FC = () => {
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
 
+    const [isClipboardImportOpen, setIsClipboardImportOpen] = React.useState(false);
+    const [copyStatus, setCopyStatus] = React.useState<'idle' | 'copied'>('idle');
+
     // --- Google State & Configuration ---
     // The Client ID is required for Google Sign-In. It is safe to be public.
     const googleClientId = "368572319708-ilhc8di33bkvnt01rg88kfmfce38bifr.apps.googleusercontent.com";
@@ -2081,45 +2145,59 @@ const App: React.FC = () => {
     const currencySymbol = currencySymbols[selectedCurrency] ?? '$';
 
     const handleExportData = React.useCallback(() => {
-        if (entries.length === 0) {
-            alert("No transaction data to export.");
-            return;
-        }
-
         try {
-            const header = ['id', 'amount', 'category', 'description', 'isIncome', 'date', 'time', 'account'];
-            
-            const escapeCsvField = (field: any): string => {
-                const stringField = String(field);
-                if (stringField.includes(',')) {
-                    return `"${stringField.replace(/"/g, '""')}"`;
-                }
-                return stringField;
+            const allData = {
+                entries,
+                accounts,
+                incomeCategories,
+                expenseCategories,
+                recurringEntries,
+                budgetGoals,
+                selectedCurrency,
             };
-
-            const rows = entries.map(e => 
-                [e.id, e.amount, escapeCsvField(e.category), escapeCsvField(e.description), e.isIncome, e.date, e.time, escapeCsvField(e.account)].join(',')
-            );
-
-            const csvContent = [header.join(','), ...rows].join('\n');
-            
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+            const jsonContent = JSON.stringify(allData, null, 2);
+            const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
             const link = document.createElement("a");
             
             const url = URL.createObjectURL(blob);
             link.setAttribute("href", url);
-            link.setAttribute("download", `income-planner-transactions-${new Date().toISOString().slice(0, 10)}.csv`);
+            link.setAttribute("download", `income-planner-backup-${new Date().toISOString().slice(0, 10)}.json`);
             link.style.visibility = 'hidden';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
-
+    
         } catch (error) {
             console.error("Failed to export data", error);
             alert("An error occurred while exporting your data.");
         }
-    }, [entries]);
+    }, [entries, accounts, incomeCategories, expenseCategories, recurringEntries, budgetGoals, selectedCurrency]);
+
+    const applyImportedData = React.useCallback((data: any) => {
+        const requiredKeys = ['entries', 'accounts', 'incomeCategories', 'expenseCategories', 'recurringEntries', 'budgetGoals'];
+        const missingKeys = requiredKeys.filter(key => !Array.isArray(data[key]));
+        
+        if (missingKeys.length > 0) {
+            throw new Error(`Invalid or corrupted backup file. Missing or invalid data for: ${missingKeys.join(', ')}.`);
+        }
+
+        if (window.confirm(`Are you sure you want to import this data? This will REPLACE all current application data.`)) {
+            setEntries(data.entries);
+            setAccounts(data.accounts);
+            setIncomeCategories(data.incomeCategories);
+            setExpenseCategories(data.expenseCategories);
+            setRecurringEntries(data.recurringEntries);
+            setBudgetGoals(data.budgetGoals);
+            if (typeof data.selectedCurrency === 'string' && currencySymbols[data.selectedCurrency]) {
+                setSelectedCurrency(data.selectedCurrency);
+            }
+            alert("Data imported successfully!");
+            return true;
+        }
+        return false;
+    }, [setEntries, setAccounts, setIncomeCategories, setExpenseCategories, setRecurringEntries, setBudgetGoals, setSelectedCurrency]);
 
     const handleImportFileChange = React.useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -2133,63 +2211,8 @@ const App: React.FC = () => {
                 return;
             }
             try {
-                const rows = text.split('\n').filter(row => row.trim() !== '');
-                if (rows.length < 1) throw new Error("CSV file is empty.");
-                
-                const headerRow = rows[0].trim();
-                const headers = headerRow.split(',');
-                
-                const isNewFormat = headers.includes('category') && headers.includes('description');
-                const isOldFormat = headers.includes('description') && !headers.includes('category');
-
-                if (!isNewFormat && !isOldFormat) {
-                    throw new Error("Invalid CSV file format. Please use a file exported from this app.");
-                }
-
-                const importedEntries: Entry[] = rows.slice(1).map(row => {
-                    const values = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
-                    const cleanValues = values.map(v => v.startsWith('"') && v.endsWith('"') ? v.slice(1, -1).replace(/""/g, '"') : v);
-                    
-                    let entry: Entry;
-                    if (isNewFormat) {
-                        entry = {
-                            id: Number(cleanValues[0]),
-                            amount: Number(cleanValues[1]),
-                            category: cleanValues[2] || '',
-                            description: cleanValues[3] || '',
-                            isIncome: cleanValues[4] === 'true',
-                            date: cleanValues[5] || '',
-                            time: cleanValues[6] || '',
-                            account: cleanValues[7] || accounts[0] || 'Cash',
-                        };
-                    } else { // Old format
-                        entry = {
-                            id: Number(cleanValues[0]),
-                            amount: Number(cleanValues[1]),
-                            category: cleanValues[2] || '',
-                            description: '',
-                            isIncome: cleanValues[3] === 'true',
-                            date: cleanValues[4] || '',
-                            time: cleanValues[5] || '',
-                            account: cleanValues[6] || accounts[0] || 'Cash',
-                        };
-                    }
-
-                    if (isNaN(entry.id) || isNaN(entry.amount) || !entry.date || !entry.time) {
-                        console.warn(`Skipping invalid row: ${row}`);
-                        return null;
-                    }
-                    return entry;
-                }).filter((e): e is Entry => e !== null);
-
-                if (importedEntries.length === 0) {
-                    throw new Error("No valid transactions found in the file.");
-                }
-
-                if (window.confirm(`Are you sure you want to import ${importedEntries.length} transactions? This will REPLACE all current transaction data.`)) {
-                    setEntries(importedEntries);
-                    alert("Transactions imported successfully!");
-                }
+                const importedData = JSON.parse(text);
+                applyImportedData(importedData);
             } catch (error) {
                 console.error("Failed to import data", error);
                 alert(`An error occurred while importing data: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -2199,7 +2222,36 @@ const App: React.FC = () => {
         reader.readAsText(file);
         
         event.target.value = '';
-    }, [setEntries, accounts]);
+    }, [applyImportedData]);
+
+    const handleCopyData = React.useCallback(async () => {
+        try {
+            const allData = {
+                entries, accounts, incomeCategories, expenseCategories,
+                recurringEntries, budgetGoals, selectedCurrency,
+            };
+            const jsonContent = JSON.stringify(allData, null, 2);
+            await navigator.clipboard.writeText(jsonContent);
+            setCopyStatus('copied');
+            setTimeout(() => setCopyStatus('idle'), 3000);
+        } catch (err) {
+            console.error('Failed to copy data: ', err);
+            alert('Failed to copy data to clipboard. Please try again or use the file export option.');
+        }
+    }, [entries, accounts, incomeCategories, expenseCategories, recurringEntries, budgetGoals, selectedCurrency]);
+
+    const handleImportFromText = React.useCallback((text: string) => {
+        try {
+            const importedData = JSON.parse(text);
+            if (applyImportedData(importedData)) {
+                setIsClipboardImportOpen(false); // Close modal on success
+            }
+        } catch (error) {
+            console.error("Failed to import data from text", error);
+            alert(`An error occurred while importing data: ${error instanceof Error ? error.message : 'Invalid JSON format'}`);
+        }
+    }, [applyImportedData]);
+
 
     const handleClearAllData = () => {
         if (window.confirm("Are you absolutely sure you want to delete all local data? This includes all transactions, accounts, categories, goals, and recurring entries. This action cannot be undone.")) {
@@ -2328,6 +2380,9 @@ const App: React.FC = () => {
                 onGoogleSignOut={handleGoogleSignOut}
                 syncStatus={syncStatus}
                 isGoogleSyncConfigured={isGoogleSyncConfigured}
+                onCopyData={handleCopyData}
+                copyStatus={copyStatus}
+                onOpenClipboardImport={() => setIsClipboardImportOpen(true)}
             />
 
             <EditEntryModal
@@ -2337,6 +2392,12 @@ const App: React.FC = () => {
                 onSave={handleUpdateEntry}
                 currencySymbol={currencySymbol}
                 accounts={accounts}
+            />
+
+            <ClipboardImportModal
+                isOpen={isClipboardImportOpen}
+                onClose={() => setIsClipboardImportOpen(false)}
+                onImport={handleImportFromText}
             />
 
             <style>{`
