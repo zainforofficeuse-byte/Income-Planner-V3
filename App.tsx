@@ -2064,10 +2064,10 @@ const App: React.FC = () => {
     const [selectedCurrency, setSelectedCurrency] = React.useState<string>(() => {
         try {
             const saved = localStorage.getItem('incomePlanner-currency');
-            return saved ? JSON.parse(saved) : 'USD';
+            return saved ? JSON.parse(saved) : 'PKR';
         } catch (error) {
             console.error("Error reading currency from localStorage", error);
-            return 'USD';
+            return 'PKR';
         }
     });
     // FIX: Replaced `aistudiocdn` with `React`
