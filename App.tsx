@@ -97,7 +97,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ accounts, setAccounts, 
 
     return (
         <div>
-            <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">Manage Accounts</h3>
+            <h3 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Manage Accounts</h3>
             <div className="flex gap-2 mb-4">
                 <input 
                     type="text"
@@ -111,7 +111,7 @@ const AccountManager: React.FC<AccountManagerProps> = ({ accounts, setAccounts, 
             </div>
             <ul className="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
                 {accounts.map((account, index) => (
-                    <li key={`${account}-${index}`} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 group">
+                    <li key={`${account}-${index}`} className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 group">
                         {editingAccount?.index === index ? (
                             <input 
                                 type="text"
@@ -215,7 +215,7 @@ const BudgetManager: React.FC<BudgetManagerProps> = ({ budgetGoals, setBudgetGoa
 
     return (
         <div>
-            <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">This Month's Budget Goals</h3>
+            <h3 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Budget Goals</h3>
             
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-6 border border-gray-200 dark:border-gray-600 space-y-3">
                  <div>
@@ -357,7 +357,7 @@ const RecurringManager: React.FC<RecurringManagerProps> = ({ recurringEntries, s
     
     return (
         <div>
-            <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">Recurring Transactions</h3>
+            <h3 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Recurring Transactions</h3>
             
             {/* Add New Form */}
             <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg mb-6 border border-gray-200 dark:border-gray-600">
@@ -507,7 +507,7 @@ const CategoryManager: React.FC<CategoryManagerProps> = ({ title, categories, se
 
     return (
         <div>
-            <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">{title}</h3>
+            <h3 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">{title}</h3>
             <div className="flex gap-2 mb-4">
                 <input
                     type="text"
@@ -623,8 +623,17 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     onCopyData, copyStatus, onOpenClipboardImport
 }) => {
     if (!isOpen) return null;
-    // FIX: Replaced `aistudiocdn` with `React`
-    const [activeTab, setActiveTab] = React.useState<'currency' | 'accounts' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync'>('currency');
+    const [activeView, setActiveView] = React.useState<'sync' | 'currency' | 'accounts' | 'income' | 'expense' | 'recurring' | 'goals'>('accounts');
+
+    const settingsNavItems = [
+        { key: 'sync', label: 'Sync & Data' },
+        { key: 'currency', label: 'Currency' },
+        { key: 'accounts', label: 'Accounts' },
+        { key: 'income', label: 'Income Categories' },
+        { key: 'expense', label: 'Expense Categories' },
+        { key: 'recurring', label: 'Recurring' },
+        { key: 'goals', label: 'Budget Goals' },
+    ];
 
     const SyncStatusIndicator: React.FC = () => {
         if (!userProfile) return null;
@@ -663,11 +672,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     };
 
     const renderContent = () => {
-        switch (activeTab) {
+        switch (activeView) {
             case 'sync':
                 return (
                     <div>
-                        <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Google Sync & Backup</h3>
+                        <h3 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Sync & Data</h3>
                         
                         {isGoogleSyncConfigured ? (
                             <>
@@ -713,7 +722,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                         )}
 
                         <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
-                             <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Local Data Management</h3>
+                             <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Local Data Management</h3>
                              <p className="mb-4 text-sm text-gray-600 dark:text-gray-400">Manage your locally stored app data. This does not affect any data synced with Google.</p>
                              <div className="space-y-3">
                                 <button onClick={onCopyData} disabled={copyStatus === 'copied'} className="w-full px-4 py-2 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition disabled:opacity-50 disabled:bg-green-100 dark:disabled:bg-green-900/50 disabled:text-green-700 dark:disabled:text-green-300">
@@ -771,7 +780,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
             default:
                 return (
                     <div>
-                        <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">Select Currency</h3>
+                        <h3 className="text-2xl font-bold mb-6 text-gray-900 dark:text-gray-100">Currency</h3>
                          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
                             {Object.entries(currencySymbols).map(([code, symbol]) => (
                                 <div
@@ -795,42 +804,50 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
                 );
         }
     };
-    
-    const TabButton: React.FC<{tab: 'currency' | 'accounts' | 'income' | 'expense' | 'recurring' | 'goals' | 'sync', children: React.ReactNode}> = ({tab, children}) => (
-        <button
-            onClick={() => setActiveTab(tab)}
-            className={`px-3 py-2 text-xs md:text-sm font-semibold rounded-t-lg transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400' : 'bg-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'}`}
-        >
-            {children}
-        </button>
-    );
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-end z-50" onClick={onClose}>
-            <div className="bg-gray-100 dark:bg-gray-900 w-full max-w-md rounded-t-2xl h-[85vh] flex flex-col animate-slide-up" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-end md:items-center z-50" onClick={onClose}>
+            <div className="bg-white dark:bg-gray-800 w-full max-w-5xl h-[90vh] rounded-t-2xl md:rounded-lg flex flex-col animate-slide-up md:animate-fade-in-scale" onClick={(e) => e.stopPropagation()}>
                 <div className="flex-shrink-0 p-4 border-b border-gray-200 dark:border-gray-700 relative">
-                     <h2 className="text-xl font-bold text-center text-gray-800 dark:text-gray-100">Settings</h2>
+                     <h2 className="text-xl font-bold text-center text-gray-900 dark:text-gray-100">Settings</h2>
                      <button onClick={onClose} className="absolute top-1/2 right-4 -translate-y-1/2 p-1.5 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors" aria-label="Close settings">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                      </button>
                 </div>
-                 <div className="flex-shrink-0 px-2 border-b border-gray-200 dark:border-gray-700 flex justify-start overflow-x-auto">
-                    <TabButton tab="currency">Currency</TabButton>
-                    <TabButton tab="accounts">Accounts</TabButton>
-                    <TabButton tab="income">Income</TabButton>
-                    <TabButton tab="expense">Expense</TabButton>
-                    <TabButton tab="recurring">Recurring</TabButton>
-                    <TabButton tab="goals">Goals</TabButton>
-                    <TabButton tab="sync">Sync</TabButton>
-                </div>
-                <div className="flex-grow p-4 overflow-y-auto bg-white dark:bg-gray-800">
-                    {renderContent()}
+                <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+                    <aside className="w-full md:w-56 flex-shrink-0 bg-gray-50 dark:bg-gray-900/50 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+                        <nav className="p-2 md:p-4 space-y-1">
+                            {settingsNavItems.map(item => (
+                                <button
+                                    key={item.key}
+                                    onClick={() => setActiveView(item.key as any)}
+                                    className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                                        activeView === item.key
+                                            ? 'bg-blue-600 text-white shadow'
+                                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                    }`}
+                                >
+                                    {item.label}
+                                </button>
+                            ))}
+                        </nav>
+                    </aside>
+                    <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-y-auto">
+                        {renderContent()}
+                    </main>
                 </div>
             </div>
             <style>{`
                 @keyframes slide-up {
                     from { transform: translateY(100%); }
                     to { transform: translateY(0); }
+                }
+                @media (min-width: 768px) {
+                    @keyframes fade-in-scale {
+                        from { opacity: 0; transform: scale(0.95); }
+                        to { opacity: 1; transform: scale(1); }
+                    }
+                    .md\\:animate-fade-in-scale { animation: fade-in-scale 0.2s ease-out forwards; }
                 }
                 .animate-slide-up { animation: slide-up 0.3s ease-out forwards; }
             `}</style>
