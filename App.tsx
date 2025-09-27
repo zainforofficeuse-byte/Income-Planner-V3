@@ -871,6 +871,8 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
     const [description, setDescription] = React.useState('');
     const [isIncome, setIsIncome] = React.useState(true);
     const [account, setAccount] = React.useState('');
+    const [date, setDate] = React.useState('');
+    const [time, setTime] = React.useState('');
 
     // FIX: Replaced `aistudiocdn` with `React`
     React.useEffect(() => {
@@ -880,6 +882,8 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
             setDescription(entry.description);
             setIsIncome(entry.isIncome);
             setAccount(entry.account);
+            setDate(entry.date);
+            setTime(entry.time);
         }
     }, [entry]);
 
@@ -893,8 +897,8 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
         const cleanAmount = amount.replace(/,/g, '');
         const numericAmount = parseFloat(cleanAmount);
 
-        if (isNaN(numericAmount) || numericAmount <= 0 || category.trim() === '') {
-            alert('Please enter a valid amount and category.');
+        if (isNaN(numericAmount) || numericAmount <= 0 || category.trim() === '' || !date || !time) {
+            alert('Please enter a valid amount, category, date, and time.');
             return;
         }
 
@@ -905,6 +909,8 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
             description: description.trim(),
             isIncome,
             account,
+            date,
+            time,
         });
     };
 
@@ -944,6 +950,26 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
                             onChange={(e) => setDescription(e.target.value)}
                             className="w-full mt-1 bg-gray-100 border-2 border-gray-200 rounded-lg py-2 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                         />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Date</label>
+                            <input
+                                type="date"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                                className="w-full mt-1 bg-gray-100 border-2 border-gray-200 rounded-lg py-2 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Time</label>
+                            <input
+                                type="time"
+                                value={time}
+                                onChange={(e) => setTime(e.target.value)}
+                                className="w-full mt-1 bg-gray-100 border-2 border-gray-200 rounded-lg py-2 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                            />
+                        </div>
                     </div>
                      <div>
                         <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Account</label>
@@ -1953,8 +1979,12 @@ const GoalsPage: React.FC<GoalsPageProps> = ({ entries, budgetGoals, currencySym
                     .filter(e => !e.isIncome && e.category === goal.name)
                     .reduce((sum, e) => sum + e.amount, 0);
             } else { // saving
+                // FIX: Resolved TypeScript error. `income` and `expenses` are already numbers from the `reduce`
+                // operation, so explicit `Number()` casting is not required.
                 currentAmount = income - expenses;
             }
+            // FIX: Resolved TypeScript error. `currentAmount` and `goal.targetAmount` are already numbers,
+            // allowing for direct arithmetic operations.
             const progress = goal.targetAmount > 0 ? (currentAmount / goal.targetAmount) * 100 : 0;
             return {
                 ...goal,
@@ -2048,6 +2078,11 @@ const App: React.FC = () => {
                     account: e.account || accounts[0] || 'Cash',
                 }));
             }
+            // FIX: Ensure `amount` is a number to prevent type errors in calculations.
+            // Data from localStorage might have amounts as strings.
+            if (Array.isArray(parsed)) {
+                return parsed.map(e => ({...e, amount: parseFloat(String(e.amount || 0).replace(/,/g, ''))}));
+            }
             return parsed;
         } catch (error) {
             console.error("Error reading or migrating entries from localStorage", error);
@@ -2110,6 +2145,11 @@ const App: React.FC = () => {
                     description: '',
                 }));
             }
+            // FIX: Ensure `amount` is a number to prevent type errors in calculations.
+            // Data from localStorage might have amounts as strings.
+            if (Array.isArray(parsed)) {
+                return parsed.map(e => ({ ...e, amount: parseFloat(String(e.amount || 0).replace(/,/g, '')) }));
+            }
             return parsed;
         } catch (error) {
             console.error("Error reading recurring entries from localStorage", error);
@@ -2120,7 +2160,13 @@ const App: React.FC = () => {
     const [budgetGoals, setBudgetGoals] = React.useState<BudgetGoal[]>(() => {
         try {
             const saved = localStorage.getItem('incomePlanner-budgetGoals');
-            return saved ? JSON.parse(saved) : [];
+            const parsed = saved ? JSON.parse(saved) : [];
+            // FIX: Ensure `targetAmount` is a number to prevent type errors in calculations.
+            // Data from localStorage might have amounts as strings.
+            if (Array.isArray(parsed)) {
+                return parsed.map(g => ({ ...g, targetAmount: parseFloat(String(g.targetAmount || 0).replace(/,/g, '')) }));
+            }
+            return parsed;
         } catch (error) {
             console.error("Error reading budget goals from localStorage", error);
             return [];
@@ -2687,37 +2733,23 @@ const App: React.FC = () => {
                         </button>
                         <button onClick={() => setIsSettingsOpen(true)} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" aria-label="Open settings">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0 3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                         </button>
                     </div>
                 </div>
             </header>
-
-            <main className="flex-grow p-4 max-w-md mx-auto w-full flex flex-col">
+            
+            <main className="max-w-md mx-auto w-full flex-grow flex flex-col p-4">
                 {renderPage()}
             </main>
             
-            <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 z-10">
-                <div className="flex justify-around">
-                    <button onClick={() => setCurrentPage('planner')} className={`flex-1 py-3 text-center transition-colors ${currentPage === 'planner' ? 'text-blue-500 dark:text-blue-400 border-t-2 border-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
-                        Planner
-                    </button>
-                    <button onClick={() => setCurrentPage('dashboard')} className={`flex-1 py-3 text-center transition-colors ${currentPage === 'dashboard' ? 'text-blue-500 dark:text-blue-400 border-t-2 border-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
-                        Dashboard
-                    </button>
-                    <button onClick={() => setCurrentPage('goals')} className={`flex-1 py-3 text-center transition-colors ${currentPage === 'goals' ? 'text-blue-500 dark:text-blue-400 border-t-2 border-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
-                        Goals
-                    </button>
-                </div>
-            </nav>
-
             <SettingsModal 
                 isOpen={isSettingsOpen} 
-                onClose={() => setIsSettingsOpen(false)} 
-                onSelectCurrency={handleSelectCurrency}
+                onClose={() => setIsSettingsOpen(false)}
                 selectedCurrency={selectedCurrency}
+                onSelectCurrency={handleSelectCurrency}
                 incomeCategories={incomeCategories}
                 setIncomeCategories={setIncomeCategories}
                 expenseCategories={expenseCategories}
@@ -2726,10 +2758,10 @@ const App: React.FC = () => {
                 setRecurringEntries={setRecurringEntries}
                 budgetGoals={budgetGoals}
                 setBudgetGoals={setBudgetGoals}
+                currencySymbol={currencySymbol}
                 accounts={accounts}
                 setAccounts={setAccounts}
                 setEntries={setEntries}
-                currencySymbol={currencySymbol}
                 onExportData={handleExportData}
                 onImportFileSelect={handleImportFileChange}
                 onClearAllData={handleClearAllData}
@@ -2742,8 +2774,7 @@ const App: React.FC = () => {
                 copyStatus={copyStatus}
                 onOpenClipboardImport={() => setIsClipboardImportOpen(true)}
             />
-
-            <EditEntryModal
+            <EditEntryModal 
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
                 entry={entryToEdit}
@@ -2751,41 +2782,37 @@ const App: React.FC = () => {
                 currencySymbol={currencySymbol}
                 accounts={accounts}
             />
-
             <ClipboardImportModal
                 isOpen={isClipboardImportOpen}
                 onClose={() => setIsClipboardImportOpen(false)}
                 onImport={handleImportFromText}
             />
 
+            <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 z-10">
+                <div className="max-w-md mx-auto px-4 flex justify-around">
+                    <button onClick={() => setCurrentPage('planner')} className={`flex flex-col items-center justify-center w-full pt-2 pb-1 ${currentPage === 'planner' ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 10v-1m0 0c-1.657 0-3-.895-3-2s1.343-2 3-2 3-.895 3-2-1.343-2-3-2m0 8c-1.11 0-2.08-.402-2.599-1M12 16v1" /></svg>
+                        <span className="text-xs font-medium">Planner</span>
+                    </button>
+                     <button onClick={() => setCurrentPage('dashboard')} className={`flex flex-col items-center justify-center w-full pt-2 pb-1 ${currentPage === 'dashboard' ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                        <span className="text-xs font-medium">Dashboard</span>
+                    </button>
+                    <button onClick={() => setCurrentPage('goals')} className={`flex flex-col items-center justify-center w-full pt-2 pb-1 ${currentPage === 'goals' ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+                        <span className="text-xs font-medium">Goals</span>
+                    </button>
+                </div>
+            </nav>
+
             <style>{`
-                html.dark {
-                    color-scheme: dark;
-                }
-                @keyframes fade-in {
-                    from { opacity: 0; transform: translateY(-10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
-                @keyframes fade-in-fast {
-                    from { opacity: 0; transform: translateY(5px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                .animate-fade-in-fast { animation: fade-in-fast 0.15s ease-out forwards; }
-                /* Custom scrollbar for suggestions */
-                .overflow-x-auto::-webkit-scrollbar {
-                    height: 4px;
-                }
-                .overflow-x-auto::-webkit-scrollbar-thumb {
-                    background-color: #d1d5db;
-                    border-radius: 20px;
-                }
-                .dark .overflow-x-auto::-webkit-scrollbar-thumb {
-                    background-color: #4b5563;
-                }
+                 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+                 .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+                 @keyframes fade-in-fast { from { opacity: 0; } to { opacity: 1; } }
+                 .animate-fade-in-fast { animation: fade-in-fast 0.2s ease-out forwards; }
             `}</style>
         </div>
     );
-}
+};
 
 export default App;
