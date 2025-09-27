@@ -862,9 +862,11 @@ interface EditEntryModalProps {
     onSave: (entry: Entry) => void;
     currencySymbol: string;
     accounts: string[];
+    incomeCategories: Category[];
+    expenseCategories: Category[];
 }
 
-const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry, onSave, currencySymbol, accounts }) => {
+const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry, onSave, currencySymbol, accounts, incomeCategories, expenseCategories }) => {
     // FIX: Replaced `aistudiocdn` with `React`
     const [amount, setAmount] = React.useState('');
     const [category, setCategory] = React.useState('');
@@ -891,6 +893,19 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
 
     const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setAmount(formatNumberInput(e.target.value));
+    };
+    
+    const handleTypeChange = (newIsIncome: boolean) => {
+        if (newIsIncome !== isIncome) {
+            setIsIncome(newIsIncome);
+            const newCategoryList = newIsIncome ? incomeCategories : expenseCategories;
+            // Reset category to the first available one for the new type
+            if (newCategoryList.length > 0) {
+                setCategory(newCategoryList[0].name);
+            } else {
+                setCategory('');
+            }
+        }
     };
 
     const handleSave = () => {
@@ -935,12 +950,15 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
                     </div>
                      <div>
                         <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Category</label>
-                         <input
-                            type="text"
+                         <select
                             value={category}
                             onChange={(e) => setCategory(e.target.value)}
                             className="w-full mt-1 bg-gray-100 border-2 border-gray-200 rounded-lg py-2 px-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                        />
+                        >
+                             {(isIncome ? incomeCategories : expenseCategories).map(cat => (
+                                <option key={cat.name} value={cat.name}>{cat.name}</option>
+                            ))}
+                        </select>
                     </div>
                     <div>
                         <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Description (Optional)</label>
@@ -984,8 +1002,8 @@ const EditEntryModal: React.FC<EditEntryModalProps> = ({ isOpen, onClose, entry,
                     <div>
                         <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Type</label>
                         <div className="grid grid-cols-2 gap-2 mt-1">
-                            <button onClick={() => setIsIncome(true)} className={`py-2 rounded-lg text-sm font-semibold transition ${isIncome ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>Income</button>
-                            <button onClick={() => setIsIncome(false)} className={`py-2 rounded-lg text-sm font-semibold transition ${!isIncome ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>Expense</button>
+                            <button onClick={() => handleTypeChange(true)} className={`py-2 rounded-lg text-sm font-semibold transition ${isIncome ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>Income</button>
+                            <button onClick={() => handleTypeChange(false)} className={`py-2 rounded-lg text-sm font-semibold transition ${!isIncome ? 'bg-red-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>Expense</button>
                         </div>
                     </div>
                 </div>
@@ -1969,23 +1987,23 @@ const GoalsPage: React.FC<GoalsPageProps> = ({ entries, budgetGoals, currencySym
         const currentMonthGoals = budgetGoals.filter(g => g.month === currentMonth);
         const currentMonthEntries = entries.filter(e => e.date.slice(0, 7) === currentMonth);
         
-        const income = currentMonthEntries.filter(e => e.isIncome).reduce((sum, e) => sum + e.amount, 0);
-        const expenses = currentMonthEntries.filter(e => !e.isIncome).reduce((sum, e) => sum + e.amount, 0);
+        const income = currentMonthEntries.filter(e => e.isIncome).reduce((sum, e) => sum + Number(e.amount), 0);
+        const expenses = currentMonthEntries.filter(e => !e.isIncome).reduce((sum, e) => sum + Number(e.amount), 0);
 
         return currentMonthGoals.map(goal => {
             let currentAmount = 0;
             if (goal.type === 'spending') {
                 currentAmount = currentMonthEntries
                     .filter(e => !e.isIncome && e.category === goal.name)
-                    .reduce((sum, e) => sum + e.amount, 0);
+                    .reduce((sum, e) => sum + Number(e.amount), 0);
             } else { // saving
-                // FIX: Resolved TypeScript error. `income` and `expenses` are already numbers from the `reduce`
-                // operation, so explicit `Number()` casting is not required.
+                // FIX: Resolved TypeScript error. `income` and `expenses` are now guaranteed to be numbers
+                // from the `reduce` operation due to explicit `Number()` casting.
                 currentAmount = income - expenses;
             }
-            // FIX: Resolved TypeScript error. `currentAmount` and `goal.targetAmount` are already numbers,
-            // allowing for direct arithmetic operations.
-            const progress = goal.targetAmount > 0 ? (currentAmount / goal.targetAmount) * 100 : 0;
+            // FIX: Resolved TypeScript error by explicitly casting `goal.targetAmount` to a number
+            // to ensure correct arithmetic operations.
+            const progress = Number(goal.targetAmount) > 0 ? (currentAmount / Number(goal.targetAmount)) * 100 : 0;
             return {
                 ...goal,
                 currentAmount: Math.max(0, currentAmount), // savings can be negative, but show 0
@@ -2781,6 +2799,8 @@ const App: React.FC = () => {
                 onSave={handleUpdateEntry}
                 currencySymbol={currencySymbol}
                 accounts={accounts}
+                incomeCategories={incomeCategories}
+                expenseCategories={expenseCategories}
             />
             <ClipboardImportModal
                 isOpen={isClipboardImportOpen}
