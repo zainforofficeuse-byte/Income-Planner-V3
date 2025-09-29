@@ -1218,38 +1218,51 @@ const HistoryItem: React.FC<HistoryItemProps> = React.memo(({ entry, currencySym
   const isIncome = entry.isIncome;
   const sign = isIncome ? '+' : '-';
   const colorClass = isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
-  const bgColorClass = isIncome ? 'bg-green-100 dark:bg-green-900/50' : 'bg-red-100 dark:bg-red-900/50';
 
   return (
-    <div className="flex items-start py-3 relative group">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${bgColorClass} ${colorClass} font-bold text-lg flex-shrink-0 mt-1`}>
-        {icon ? <span className="text-xl">{icon}</span> : sign}
-      </div>
-      <div className="ml-4 flex-grow">
-        <p className="font-semibold text-gray-800 dark:text-gray-100">{entry.category}</p>
-        {entry.description && <p className="text-xs text-gray-500 dark:text-gray-400">{entry.description}</p>}
-        <div className="flex items-center gap-2 mt-1">
-             <p className={`text-sm font-bold ${colorClass}`}>
-                {currencySymbol} {entry.amount.toLocaleString()}
-            </p>
-             <p className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full inline-block">{entry.account}</p>
+    <div className="flex items-center py-3 relative group text-sm -mx-2">
+        {/* Date Column (20%) */}
+        <div className="w-[20%] flex-shrink-0 text-xs text-gray-500 dark:text-gray-400 px-2">
+            <p>{new Date(entry.date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</p>
+            <p>{entry.time}</p>
         </div>
-      </div>
-      <div className="text-right text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
-        <p>{entry.date}</p>
-        <p>{entry.time}</p>
-      </div>
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-white dark:bg-gray-800 rounded-full shadow-sm p-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={onEdit} className="p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-full" aria-label="Edit transaction">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
-        </button>
-        <button onClick={onDelete} className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-800 rounded-full" aria-label="Delete transaction">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-        </button>
-      </div>
+
+        {/* Category/Description Column (40%) */}
+        <div className="w-[40%] flex-grow flex items-center px-2 min-w-0">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isIncome ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400'} font-bold flex-shrink-0`}>
+                {icon ? <span className="text-lg">{icon}</span> : <span className="text-xl">{sign}</span>}
+            </div>
+            <div className="ml-3 truncate">
+                <p className="font-semibold text-gray-800 dark:text-gray-100 truncate" title={entry.category}>{entry.category}</p>
+                {entry.description && <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={entry.description}>{entry.description}</p>}
+            </div>
+        </div>
+
+        {/* Account Column (20%) */}
+        <div className="w-[20%] flex-shrink-0 text-center px-2">
+            <p className="text-xs text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-full inline-block truncate max-w-full" title={entry.account}>{entry.account}</p>
+        </div>
+
+        {/* Amount Column (20%) */}
+        <div className="w-[20%] flex-shrink-0 text-right font-semibold px-2">
+            <p className={colorClass}>
+                {sign}{currencySymbol}{entry.amount.toLocaleString()}
+            </p>
+        </div>
+      
+        {/* Edit/Delete Buttons */}
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-white dark:bg-gray-800/80 backdrop-blur-sm rounded-full shadow-lg p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={onEdit} className="p-1.5 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-800 rounded-full" aria-label="Edit transaction">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+            </button>
+            <button onClick={onDelete} className="p-1.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-800 rounded-full" aria-label="Delete transaction">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+            </button>
+        </div>
     </div>
   );
 });
+
 
 // --- Page Components ---
 
@@ -1280,8 +1293,20 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
     incomeCategories, expenseCategories, accounts, selectedAccount, setSelectedAccount,
     handleAmountChange, setCategory, setDescription, handleAddEntry, onEditEntry, onDeleteEntry
 }) => {
+    type SortKey = 'date' | 'amount' | 'category' | 'account';
+    type SortDirection = 'ascending' | 'descending';
+    
     const [showSuggestions, setShowSuggestions] = React.useState(false);
     const [historyDaysToShow, setHistoryDaysToShow] = React.useState(7);
+    const [sortConfig, setSortConfig] = React.useState<{ key: SortKey; direction: SortDirection }>({ key: 'date', direction: 'descending' });
+
+    const requestSort = (key: SortKey) => {
+        let direction: SortDirection = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
 
     const displayedEntries = React.useMemo(() => {
         const today = new Date();
@@ -1290,14 +1315,44 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
         startDate.setHours(0, 0, 0, 0);
         const startDateStr = startDate.toLocaleDateString('en-CA');
 
-        return entries
-            .filter(entry => entry.date >= startDateStr)
-            .sort((a, b) => {
-                const dateA = new Date(`${a.date}T${a.time || '00:00'}`);
-                const dateB = new Date(`${b.date}T${b.time || '00:00'}`);
-                return dateA.getTime() - dateB.getTime();
-            });
-    }, [entries, historyDaysToShow]);
+        const filteredByDate = entries.filter(entry => entry.date >= startDateStr);
+        
+        const sorted = [...filteredByDate].sort((a, b) => {
+            let aValue: string | number;
+            let bValue: string | number;
+    
+            switch (sortConfig.key) {
+                case 'date':
+                    aValue = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+                    bValue = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+                    break;
+                case 'amount':
+                    aValue = a.isIncome ? a.amount : -a.amount;
+                    bValue = b.isIncome ? b.amount : -b.amount;
+                    break;
+                case 'category':
+                case 'account':
+                    aValue = a[sortConfig.key].toLowerCase();
+                    bValue = b[sortConfig.key].toLowerCase();
+                    break;
+                default:
+                    return 0;
+            }
+            
+            if (aValue < bValue) {
+                return sortConfig.direction === 'ascending' ? -1 : 1;
+            }
+            if (aValue > bValue) {
+                return sortConfig.direction === 'ascending' ? 1 : -1;
+            }
+            
+            const dateA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+            const dateB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+            return dateB - dateA;
+        });
+
+        return sorted;
+    }, [entries, historyDaysToShow, sortConfig]);
 
     const hasMoreEntries = React.useMemo(() => {
         return displayedEntries.length < entries.length;
@@ -1321,12 +1376,48 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
             : suggestionList,
     [suggestionList, category]);
 
+    const SortableHeader: React.FC<{
+        label: string;
+        sortKey: SortKey;
+        className?: string;
+    }> = ({ label, sortKey, className }) => {
+        const isSorted = sortConfig.key === sortKey;
+        const directionIcon = sortConfig.direction === 'ascending' ? '▲' : '▼';
+    
+        return (
+            <button
+                onClick={() => requestSort(sortKey)}
+                className={`flex items-center gap-1 font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition ${className}`}
+                aria-label={`Sort by ${label}`}
+            >
+                <span>{label}</span>
+                {isSorted && <span className="text-xs">{directionIcon}</span>}
+            </button>
+        );
+    };
+
     return (
     <>
         <div className="flex-grow flex flex-col">
             {entries.length > 0 ? (
                 <div className="flex-grow bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 mb-4 overflow-hidden flex flex-col">
-                   <div className="overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700 pr-2">
+                   <div className="flex-shrink-0 flex items-center text-xs px-2 pb-2 border-b border-gray-200 dark:border-gray-700">
+                        <SortableHeader label="Date" sortKey="date" className="w-[20%]" />
+                        <SortableHeader label="Category" sortKey="category" className="w-[40%]" />
+                        <SortableHeader label="Account" sortKey="account" className="w-[20%] justify-center" />
+                        <SortableHeader label="Amount" sortKey="amount" className="w-[20%] justify-end" />
+                   </div>
+                   <div className="overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700">
+                     {hasMoreEntries && (
+                        <div className="py-4 text-center">
+                            <button 
+                                onClick={handleShowMore}
+                                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+                            >
+                                Load More (+15 days)
+                            </button>
+                        </div>
+                     )}
                      {displayedEntries.map(entry => (
                         <HistoryItem 
                             key={entry.id} 
@@ -1342,17 +1433,6 @@ const PlannerPage: React.FC<PlannerPageProps> = ({
                         <div className="text-center py-10 text-gray-500 dark:text-gray-400">
                             <p>No transactions in the last {historyDaysToShow} days.</p>
                             {hasMoreEntries && <p className="text-sm mt-1">Click "Load More" to see older entries.</p>}
-                        </div>
-                     )}
-
-                     {hasMoreEntries && (
-                        <div className="py-4 text-center">
-                            <button 
-                                onClick={handleShowMore}
-                                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 font-semibold rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-600 transition"
-                            >
-                                Load More (+15 days)
-                            </button>
                         </div>
                      )}
                    </div>
@@ -1565,50 +1645,43 @@ interface NetCategorySummaryProps {
 }
 
 const NetCategorySummary: React.FC<NetCategorySummaryProps> = ({ data, currencySymbol, onCategoryClick }) => {
-    const CustomTooltip = ({ active, payload }: any) => {
-        if (active && payload && payload.length) {
-            const { name, net } = payload[0].payload;
-            const colorClass = net >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
-            return (
-                <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-2.5 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{name}</p>
-                    <p className={`text-xs font-bold ${colorClass}`}>
-                        Net: {currencySymbol} {net.toLocaleString()}
-                    </p>
-                </div>
-            );
-        }
-        return null;
-    };
+    const maxAbsNet = React.useMemo(() => {
+        if (data.length === 0) return 1;
+        return Math.max(...data.map(d => Math.abs(d.net)));
+    }, [data]);
 
     return (
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-            <h3 className="text-lg font-bold mb-4 text-gray-700 dark:text-gray-200">Net Category Summary</h3>
+            <h3 className="text-lg font-bold mb-3 text-gray-700 dark:text-gray-200">Net Category Summary</h3>
             {data.length > 0 ? (
-                <div style={{ width: '100%', height: 300 }}>
-                    <ResponsiveContainer>
-                        <BarChart
-                            data={data}
-                            layout="vertical"
-                            margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.2} />
-                            <XAxis type="number" tick={{ fill: 'currentColor', fontSize: 12 }} />
-                            <YAxis dataKey="name" type="category" width={80} tick={{ fill: 'currentColor', fontSize: 12, width: 70 }} />
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(209, 213, 219, 0.3)' }} />
-                            {/* FIX: Moved onClick handler from BarChart to Bar to resolve typing issues with the event payload. */}
-                            <Bar 
-                                dataKey="net" 
-                                style={{ cursor: onCategoryClick ? 'pointer' : 'default' }}
-                                onClick={onCategoryClick ? (payload) => onCategoryClick(payload.name) : undefined}
+                <ul className="space-y-2 mt-4">
+                    {data.map(({ name, net }) => {
+                        const isPositive = net >= 0;
+                        const barWidth = maxAbsNet > 0 ? (Math.abs(net) / maxAbsNet) * 100 : 0;
+                        const sign = isPositive ? '+' : '−'; // Using minus sign for better typography
+                        const colorClass = isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+                        const bgColorClass = isPositive ? 'bg-green-500' : 'bg-red-500';
+
+                        return (
+                            <li
+                                key={name}
+                                onClick={onCategoryClick ? () => onCategoryClick(name) : undefined}
+                                className={onCategoryClick ? 'cursor-pointer rounded-lg p-2 -m-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors' : ''}
+                                role={onCategoryClick ? 'button' : undefined}
+                                tabIndex={onCategoryClick ? 0 : -1}
+                                onKeyDown={onCategoryClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onCategoryClick(name) : undefined}
                             >
-                                {data.map((entry) => (
-                                    <Cell key={`cell-${entry.name}`} fill={entry.net >= 0 ? '#22c55e' : '#ef4444'} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
+                                <div className="flex justify-between items-center text-sm mb-1">
+                                    <span className="font-medium text-gray-700 dark:text-gray-300">{name}</span>
+                                    <span className={`font-semibold ${colorClass}`}>{sign} {currencySymbol}{Math.abs(net).toLocaleString()}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                    <div className={`${bgColorClass} h-2 rounded-full`} style={{ width: `${barWidth}%` }}></div>
+                                </div>
+                            </li>
+                        );
+                    })}
+                </ul>
             ) : (
                 <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-8">No category data for this period.</p>
             )}
@@ -1987,23 +2060,22 @@ const GoalsPage: React.FC<GoalsPageProps> = ({ entries, budgetGoals, currencySym
         const currentMonthGoals = budgetGoals.filter(g => g.month === currentMonth);
         const currentMonthEntries = entries.filter(e => e.date.slice(0, 7) === currentMonth);
         
-        const income = currentMonthEntries.filter(e => e.isIncome).reduce((sum, e) => sum + Number(e.amount), 0);
-        const expenses = currentMonthEntries.filter(e => !e.isIncome).reduce((sum, e) => sum + Number(e.amount), 0);
+        // FIX: Ensure numeric addition by explicitly converting `e.amount` to a number. This prevents runtime type errors if `e.amount` is not a valid number.
+        const income = currentMonthEntries.filter(e => e.isIncome).reduce((sum, e) => sum + Number(e.amount || 0), 0);
+        // FIX: Ensure numeric addition by explicitly converting `e.amount` to a number.
+        const expenses = currentMonthEntries.filter(e => !e.isIncome).reduce((sum, e) => sum + Number(e.amount || 0), 0);
 
         return currentMonthGoals.map(goal => {
             let currentAmount = 0;
             if (goal.type === 'spending') {
+                // FIX: Ensure numeric addition by explicitly converting `e.amount` to a number.
                 currentAmount = currentMonthEntries
                     .filter(e => !e.isIncome && e.category === goal.name)
-                    .reduce((sum, e) => sum + Number(e.amount), 0);
+                    .reduce((sum, e) => sum + Number(e.amount || 0), 0);
             } else { // saving
-                // FIX: Resolved TypeScript error. `income` and `expenses` are now guaranteed to be numbers
-                // from the `reduce` operation due to explicit `Number()` casting.
                 currentAmount = income - expenses;
             }
-            // FIX: Resolved TypeScript error by explicitly casting `goal.targetAmount` to a number
-            // to ensure correct arithmetic operations.
-            const progress = Number(goal.targetAmount) > 0 ? (currentAmount / Number(goal.targetAmount)) * 100 : 0;
+            const progress = goal.targetAmount > 0 ? (currentAmount / goal.targetAmount) * 100 : 0;
             return {
                 ...goal,
                 currentAmount: Math.max(0, currentAmount), // savings can be negative, but show 0
@@ -2759,14 +2831,37 @@ const App: React.FC = () => {
                 </div>
             </header>
             
-            <main className="max-w-md mx-auto w-full flex-grow flex flex-col p-4">
-                {renderPage()}
+            <main className="flex-grow flex flex-col max-w-md mx-auto w-full p-4">
+               {renderPage()}
             </main>
             
+            <nav className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_-2px_10px_rgba(0,0,0,0.2)] fixed bottom-0 left-0 right-0 z-10 border-t border-gray-200 dark:border-gray-700">
+                <div className="max-w-md mx-auto flex justify-around">
+                    <button onClick={() => setCurrentPage('planner')} className={`flex-1 flex flex-col items-center py-2 text-xs font-semibold transition-colors ${currentPage === 'planner' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                        </svg>
+                        Home
+                    </button>
+                    <button onClick={() => setCurrentPage('dashboard')} className={`flex-1 flex flex-col items-center py-2 text-xs font-semibold transition-colors ${currentPage === 'dashboard' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Dashboard
+                    </button>
+                    <button onClick={() => setCurrentPage('goals')} className={`flex-1 flex flex-col items-center py-2 text-xs font-semibold transition-colors ${currentPage === 'goals' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400'}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        Goals
+                    </button>
+                </div>
+            </nav>
+
             <SettingsModal 
                 isOpen={isSettingsOpen} 
-                onClose={() => setIsSettingsOpen(false)}
-                selectedCurrency={selectedCurrency}
+                onClose={() => setIsSettingsOpen(false)} 
+                selectedCurrency={selectedCurrency} 
                 onSelectCurrency={handleSelectCurrency}
                 incomeCategories={incomeCategories}
                 setIncomeCategories={setIncomeCategories}
@@ -2792,7 +2887,8 @@ const App: React.FC = () => {
                 copyStatus={copyStatus}
                 onOpenClipboardImport={() => setIsClipboardImportOpen(true)}
             />
-            <EditEntryModal 
+
+            <EditEntryModal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}
                 entry={entryToEdit}
@@ -2802,34 +2898,25 @@ const App: React.FC = () => {
                 incomeCategories={incomeCategories}
                 expenseCategories={expenseCategories}
             />
+            
             <ClipboardImportModal
                 isOpen={isClipboardImportOpen}
                 onClose={() => setIsClipboardImportOpen(false)}
                 onImport={handleImportFromText}
             />
 
-            <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 z-10">
-                <div className="max-w-md mx-auto px-4 flex justify-around">
-                    <button onClick={() => setCurrentPage('planner')} className={`flex flex-col items-center justify-center w-full pt-2 pb-1 ${currentPage === 'planner' ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 10v-1m0 0c-1.657 0-3-.895-3-2s1.343-2 3-2 3-.895 3-2-1.343-2-3-2m0 8c-1.11 0-2.08-.402-2.599-1M12 16v1" /></svg>
-                        <span className="text-xs font-medium">Planner</span>
-                    </button>
-                     <button onClick={() => setCurrentPage('dashboard')} className={`flex flex-col items-center justify-center w-full pt-2 pb-1 ${currentPage === 'dashboard' ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-                        <span className="text-xs font-medium">Dashboard</span>
-                    </button>
-                    <button onClick={() => setCurrentPage('goals')} className={`flex flex-col items-center justify-center w-full pt-2 pb-1 ${currentPage === 'goals' ? 'text-blue-500' : 'text-gray-500 dark:text-gray-400'}`}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-                        <span className="text-xs font-medium">Goals</span>
-                    </button>
-                </div>
-            </nav>
-
             <style>{`
-                 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-                 .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
-                 @keyframes fade-in-fast { from { opacity: 0; } to { opacity: 1; } }
-                 .animate-fade-in-fast { animation: fade-in-fast 0.2s ease-out forwards; }
+                @keyframes fade-in {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+                
+                @keyframes fade-in-fast {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                .animate-fade-in-fast { animation: fade-in-fast 0.2s ease-out forwards; }
             `}</style>
         </div>
     );
